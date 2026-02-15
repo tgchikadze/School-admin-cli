@@ -1,4 +1,5 @@
 """CLI команды для файлового менеджера"""
+""" URL репозитория https://github.com/tgchikadze/School-admin-cli"""
 import click
 import sys
 import os
