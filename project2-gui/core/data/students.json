@@ -1,0 +1,52 @@
+{
+  "students": [
+    {
+      "id": "001",
+      "fio": "Армасова Дарина Муратовна",
+      "contract_number": "8БТ-1",
+      "courses": [
+        "Английский язык",
+        "Биофизика",
+        "Биоразнообразие растений",
+        "Экологические закономерности"
+      ],
+      "monthly_payment": 8000.0,
+      "compensation": "",
+      "phone": "+7 999 123-45-67",
+      "email": "darina@example.com",
+      "parent_name": "Армасов Мурат Александрович",
+      "parent_phone": "+7 999 765-43-21"
+    },
+    {
+      "id": "002",
+      "fio": "Иванов Иван Петрович",
+      "contract_number": "8БТ-2",
+      "courses": [
+        "Математика",
+        "Физика"
+      ],
+      "monthly_payment": 5000.0,
+      "compensation": "500",
+      "phone": "+7 999 111-22-33",
+      "email": "ivanov@example.com",
+      "parent_name": "Иванова Мария Сергеевна",
+      "parent_phone": "+7 999 444-55-66"
+    },
+    {
+      "id": "003",
+      "fio": "Петрова Анна Сергеевна",
+      "contract_number": "8БТ-5",
+      "courses": [
+        "Химия",
+        "Биология",
+        "Экология"
+      ],
+      "monthly_payment": 6500.0,
+      "compensation": "",
+      "phone": "+7 999 222-33-44",
+      "email": "petrova@example.com",
+      "parent_name": "Петров Сергей Иванович",
+      "parent_phone": "+7 999 555-66-77"
+    }
+  ]
+}
