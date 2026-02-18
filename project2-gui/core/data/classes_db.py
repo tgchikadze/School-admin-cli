@@ -237,28 +237,16 @@ class ClassesDatabase:
     # Расчёт стоимости
     # =======================
 
-    def calculate_price(
-        self,
-        class_id: str,
-        selected_subjects: list[str],
-    ) -> float:
+    def calculate_price(self, class_id: str, selected_subjects: list) -> float:
         """
-        Рассчитать стоимость обучения для класса.
+        Рассчитать стоимость обучения.
 
         Параметры:
-            class_id (str): Идентификатор класса.
-            selected_subjects (list[str]): Список выбранных предметов.
-                Для классов с типом 'fixed' не влияет на результат.
-                Для 11 класса (per_subject) определяет итоговую сумму.
+            class_id (str): ID класса.
+            selected_subjects (list): Список выбранных предметов.
 
         Возвращает:
-            float: Рассчитанная стоимость обучения.
-                0.0 — если класс не найден или тип ценообразования неизвестен.
-
-        Логика расчёта:
-            - 'fixed': возвращает pricing['base_price'].
-            - 'per_subject': base_subjects_price
-              + (кол-во выбранных предметов ЕГЭ × price_per_subject).
+            float: Стоимость обучения.
         """
         class_info = self.get_class_by_id(class_id)
         if not class_info:
@@ -266,10 +254,6 @@ class ClassesDatabase:
 
         pricing = class_info.get("pricing", {})
         pricing_type = pricing.get("type", "fixed")
-
-        if pricing_type == "fixed":
-            return float(pricing.get("base_price", 0))
-
         if pricing_type == "per_subject":
             base_price = float(pricing.get("base_subjects_price", 0))
             price_per_subject = float(pricing.get("price_per_subject", 0))
@@ -277,9 +261,8 @@ class ClassesDatabase:
             selected_exam_count = sum(
                 1 for s in selected_subjects if s in exam_subjects
             )
-            return base_price + (selected_exam_count * price_per_subject)
-
-        return 0.0
+            return base_price + selected_exam_count * price_per_subject
+        return float(pricing.get("base_price", 0))
 
     def get_price_info(self, class_id: str) -> str:
         """
