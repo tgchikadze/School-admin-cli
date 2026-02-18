@@ -1,57 +1,47 @@
 """
-Класс для работы с базой данных учеников (JSON)
-В будущем (проект 4-5) заменим на PostgreSQL
+База данных учеников
 """
 import json
-import os
+from pathlib import Path
 from typing import List, Dict, Optional
 
 
 class StudentDatabase:
     """Класс для работы с базой данных учеников"""
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, data_file: str = "core/data/students.json"):
         """
         Инициализация базы данных
 
         Args:
-            db_path: Путь к JSON файлу с данными
+            data_file: Путь к файлу с данными
         """
-        if db_path is None:
-            # Путь по умолчанию относительно этого файла
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            db_path = os.path.join(current_dir, 'students.json')
+        self.data_file = Path(data_file)
+        self._ensure_data_file()
 
-        self.db_path = db_path
-        self._ensure_db_exists()
+    def _ensure_data_file(self):
+        """Создать файл данных если его нет"""
+        self.data_file.parent.mkdir(parents=True, exist_ok=True)
+        if not self.data_file.exists():
+            self._save([])
 
-    def _ensure_db_exists(self):
-        """Создать файл БД если его нет"""
-        if not os.path.exists(self.db_path):
-            self._save_data({'students': []})
-
-    def _load_data(self) -> Dict:
-        """Загрузить данные из JSON"""
+    def _load(self) -> List[Dict]:
+        """Загрузить данные из файла"""
         try:
-            with open(self.db_path, 'r', encoding='utf-8') as f:
+            with open(self.data_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except Exception as e:
-            print(f"Ошибка загрузки данных: {e}")
-            return {'students': []}
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Error reading students: {e}")
+            return []
 
-    def _save_data(self, data: Dict):
-        """Сохранить данные в JSON"""
-        try:
-            with open(self.db_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Ошибка сохранения данных: {e}")
-            raise
+    def _save(self, data: List[Dict]):
+        """Сохранить данные в файл"""
+        with open(self.data_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
     def get_all(self) -> List[Dict]:
         """Получить всех учеников"""
-        data = self._load_data()
-        return data.get('students', [])
+        return self._load()
 
     def get_by_id(self, student_id: str) -> Optional[Dict]:
         """
@@ -61,97 +51,94 @@ class StudentDatabase:
             student_id: ID ученика
 
         Returns:
-            Словарь с данными ученика или None
+            dict или None если не найдено
         """
         students = self.get_all()
         for student in students:
-            if student.get('id') == student_id:
+            if student['id'] == student_id:
                 return student
         return None
 
-    def search(self, query: str) -> List[Dict]:
+    def add(self, fio, contract_number, class_id, monthly_payment, compensation=""):
         """
-        Поиск учеников по ФИО
+        Добавить ученика в базу
 
         Args:
-            query: Поисковый запрос
+            fio: ФИО ученика
+            contract_number: Номер договора
+            class_id: ID класса
+            monthly_payment: Ежемесячная оплата
+            compensation: Компенсация (опционально)
 
         Returns:
-            Список найденных учеников
+            dict: Добавленный ученик или None при ошибке
         """
-        query_lower = query.lower()
         students = self.get_all()
 
-        results = []
-        for student in students:
-            fio = student.get('fio', '').lower()
-            if query_lower in fio:
-                results.append(student)
+        # Проверка на дубликаты
+        if self.check_duplicate(fio, contract_number):
+            print(f"⚠️ Ученик с таким ФИО или номером договора уже существует")
+            return None
 
-        return results
+        # Генерация ID
+        if students:
+            last_id = max(int(s['id']) for s in students)
+            new_id = f"{last_id + 1:03d}"
+        else:
+            new_id = "001"
 
-    def add(self, student: Dict) -> bool:
-        """
-        Добавить нового ученика
+        # Создать запись ученика
+        student = {
+            'id': new_id,
+            'fio': fio,
+            'contract_number': contract_number,
+            'class_id': class_id,
+            'monthly_payment': monthly_payment,
+            'compensation': compensation
+        }
 
-        Args:
-            student: Словарь с данными ученика
+        students.append(student)
+        self._save(students)
 
-        Returns:
-            True если успешно, False если ошибка
-        """
-        try:
-            data = self._load_data()
-            students = data.get('students', [])
+        print(f"✅ Добавлен ученик: {fio} (ID: {new_id})")
+        return student
 
-            # Генерировать новый ID
-            if students:
-                max_id = max(int(s['id']) for s in students)
-                new_id = str(max_id + 1).zfill(3)
-            else:
-                new_id = "001"
-
-            student['id'] = new_id
-            students.append(student)
-
-            data['students'] = students
-            self._save_data(data)
-            return True
-
-        except Exception as e:
-            print(f"Ошибка добавления ученика: {e}")
-            return False
-
-    def update(self, student_id: str, updated_data: Dict) -> bool:
+    def update(self, student_id, fio=None, contract_number=None, class_id=None,
+               monthly_payment=None, compensation=None):
         """
         Обновить данные ученика
 
         Args:
             student_id: ID ученика
-            updated_data: Обновленные данные
+            fio: Новое ФИО (опционально)
+            contract_number: Новый номер договора (опционально)
+            class_id: Новый ID класса (опционально)
+            monthly_payment: Новая оплата (опционально)
+            compensation: Новая компенсация (опционально)
 
         Returns:
-            True если успешно, False если ошибка
+            bool: True если обновлено, False если не найдено
         """
-        try:
-            data = self._load_data()
-            students = data.get('students', [])
+        students = self.get_all()
 
-            for i, student in enumerate(students):
-                if student.get('id') == student_id:
-                    # Обновить данные, сохранив ID
-                    updated_data['id'] = student_id
-                    students[i] = updated_data
+        for student in students:
+            if student['id'] == student_id:
+                if fio is not None:
+                    student['fio'] = fio
+                if contract_number is not None:
+                    student['contract_number'] = contract_number
+                if class_id is not None:
+                    student['class_id'] = class_id
+                if monthly_payment is not None:
+                    student['monthly_payment'] = monthly_payment
+                if compensation is not None:
+                    student['compensation'] = compensation
 
-                    data['students'] = students
-                    self._save_data(data)
-                    return True
+                self._save(students)
+                print(f"✅ Обновлен ученик: {student['fio']} (ID: {student_id})")
+                return True
 
-            return False  # Ученик не найден
-
-        except Exception as e:
-            print(f"Ошибка обновления ученика: {e}")
-            return False
+        return False
 
     def delete(self, student_id: str) -> bool:
         """
@@ -161,23 +148,65 @@ class StudentDatabase:
             student_id: ID ученика
 
         Returns:
-            True если успешно, False если ошибка
+            bool: True если удалено, False если не найдено
         """
-        try:
-            data = self._load_data()
-            students = data.get('students', [])
+        students = self.get_all()
 
-            # Найти и удалить ученика
-            students = [s for s in students if s.get('id') != student_id]
+        for i, student in enumerate(students):
+            if student['id'] == student_id:
+                deleted_student = students.pop(i)
+                self._save(students)
+                print(f"✅ Удален ученик: {deleted_student['fio']} (ID: {student_id})")
+                return True
 
-            data['students'] = students
-            self._save_data(data)
-            return True
+        return False
 
-        except Exception as e:
-            print(f"Ошибка удаления ученика: {e}")
-            return False
+    def search(self, query: str) -> List[Dict]:
+        """
+        Поиск учеников по ФИО
 
-    def get_count(self) -> int:
-        """Получить количество учеников"""
-        return len(self.get_all())
+        Args:
+            query: Поисковый запрос
+
+        Returns:
+            list: Список найденных учеников
+        """
+        students = self.get_all()
+        query_lower = query.lower()
+
+        results = [
+            s for s in students
+            if query_lower in s['fio'].lower()
+        ]
+
+        return results
+
+    def check_duplicate(self, fio: str, contract_number: str, exclude_id: str = None) -> bool:
+        """
+        Проверить наличие дубликата
+
+        Args:
+            fio: ФИО для проверки
+            contract_number: Номер договора для проверки
+            exclude_id: ID ученика, который нужно исключить из проверки
+
+        Returns:
+            bool: True если дубликат найден
+        """
+        students = self.get_all()
+
+        for student in students:
+            # Пропустить ученика с exclude_id
+            if exclude_id and student['id'] == exclude_id:
+                continue
+
+            # Проверка на совпадение ФИО или номера договора
+            if student['fio'] == fio or student['contract_number'] == contract_number:
+                return True
+
+        return False
+
+    def clear_all(self):
+        """Очистить всю базу данных"""
+        self._save([])
+        print("✅ База данных очищена")
