@@ -254,25 +254,22 @@ def generate_receipt_from_dict(
     output_path: str = "receipt_output.pdf",
 ) -> str:
     """
-    Сгенерировать квитанцию из словаря.
+    Генерирует квитанцию из словаря.
 
-    Параметры:
-        data (dict): Ключи: 'Ф.И.О', 'Вид платежа', '№ договора',
-                     'Месяц/год', 'К оплате', 'компенсация' (опц.).
-        output_path (str): Путь для сохранения.
-
-    Возвращает:
-        str: Абсолютный путь к файлу.
+    Поддерживает два формата ключей:
+    - Русские: 'Ф.И.О', 'Вид платежа', '№ договора', 'Месяц/год', 'К оплате', 'компенсация'
+    - Английские: 'student_name', 'courses', 'contract_number', 'month_year', 'amount', 'compensation'
     """
     return generate_receipt(
-        student_name=data["Ф.И.О"],
-        courses=data["Вид платежа"],
-        contract_number=data["№ договора"],
-        month_year=data["Месяц/год"],
-        amount=data["К оплате"],
-        compensation=data.get("компенсация", ""),
+        student_name=data.get("student_name") or data["Ф.И.О"],
+        courses=data.get("courses") or data["Вид платежа"],
+        contract_number=data.get("contract_number") or data["№ договора"],
+        month_year=data.get("month_year") or data["Месяц/год"],
+        amount=data.get("amount") or data["К оплате"],
+        compensation=data.get("compensation", "") or data.get("компенсация", ""),
         output_path=output_path,
     )
+
 
 
 if __name__ == "__main__":
