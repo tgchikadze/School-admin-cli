@@ -4,38 +4,29 @@ __pycache__/
 *$py.class
 *.so
 .Python
-*.egg-info/
-dist/
-build/
-
-# Virtual Environment
-venv/
 env/
+venv/
 ENV/
-.venv
+build/
+dist/
+*.egg-info/
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
-*~
+
+# Project specific
+*.pdf
+!project1-cli/core/receipt/templates/receipt_template.pdf
+!project2-gui/core/receipt/templates/receipt_template.pdf
+*.log
+.env
+
+# Test results
+tests/test_results/
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Project specific
-*.pdf
-*.db
-*.sqlite
-*.sqlite3
-*.log
-
-# Test coverage
-.coverage
-htmlcov/
-
-# Temporary files
-*.tmp
-*.bak

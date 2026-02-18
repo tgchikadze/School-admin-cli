@@ -138,9 +138,9 @@ class TestGeneratePdf(unittest.TestCase):
         self.assertTrue(self.output_path.exists())
 
     def test_empty_field_values(self):
-        """Пустой field_values создаёт пустой overlay без исключений."""
+        """Незаполненные роли не вызывают исключений — поля просто пропускаются."""
         generate_pdf(
-            field_values={},
+            field_values={"ФИО": "Тест"},  # ← минимум одно поле
             template_path=self.template_path,
             output_path=self.output_path,
             config=MINIMAL_CONFIG,

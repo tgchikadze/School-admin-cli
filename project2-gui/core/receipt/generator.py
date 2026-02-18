@@ -213,7 +213,8 @@ def generate_receipt(
     if not isinstance(courses, list):
         courses = [str(courses)]
     else:
-        courses = [str(c) for c in courses if c]
+        courses = [str(c) for c in courses if str(c).strip()]
+
     if not courses:
         raise ValueError("Список предметов не может быть пустым")
 
