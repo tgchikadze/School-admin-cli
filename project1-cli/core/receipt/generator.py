@@ -1,166 +1,280 @@
-"""Генератор квитанций ПД-5"""
-from reportlab.pdfgen import canvas
+"""
+Генератор PDF-бланков на основе шаблона и JSON-конфигурации координат.
+
+Функциональность:
+    - Универсальная генерация: структура бланка полностью определяется JSON.
+    - Жёстких имён полей в коде нет — всё читается из конфигурации.
+    - Поддержка многоблочных бланков (например, ПД-5: Извещение + Квитанция).
+    - Поддержка многострочных полей (список значений → строки с line_height).
+    - Шрифт Times New Roman (Windows) / Times-Roman (macOS, Linux).
+
+Формат входного JSON (создаётся find_coordinates.py):
+    {
+        "source_template": "receipt_template.pdf",
+        "font_size": 10,
+        "line_height": 11,
+        "roles": ["ФИО", "Вид платежа", "№ договора", ...],
+        "blocks": [
+            {"ФИО": {"page": 1, "x": 230, "y": 610}, ...},
+            {"ФИО": {"page": 1, "x": 230, "y": 255}, ...}
+        ]
+    }
+
+Формат field_values (передаётся в generate_pdf):
+    {
+        "ФИО": "Иванов Иван Иванович",
+        "Вид платежа": ["Математика", "Физика"],  # список → многострочно
+        "К оплате": "5 000.00",
+        ...
+    }
+
+Зависимости: reportlab, pypdf.
+"""
+
+import io
+import json
+import platform
+from pathlib import Path
+
+from pypdf import PdfReader, PdfWriter
+from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.pagesizes import A4
-from pypdf import PdfReader, PdfWriter
-import os
-import io
+from reportlab.pdfgen import canvas
+
+# =======================
+# Настройка шрифта
+# =======================
+
+try:
+    if platform.system() == "Windows":
+        pdfmetrics.registerFont(
+            TTFont("TimesNewRoman", "C:/Windows/Fonts/times.ttf")
+        )
+        _FONT_NAME = "TimesNewRoman"
+    else:
+        _FONT_NAME = "Times-Roman"
+except Exception:  # noqa: BLE001
+    _FONT_NAME = "Times-Roman"
 
 
-def generate_receipt(student_name, courses, contract_number, month_year,
-                     amount, compensation='', output_path='receipt_output.pdf'):
+# =======================
+# Загрузка конфигурации
+# =======================
+
+def load_template_config(json_path: str | Path) -> dict:
     """
-    Генерирует квитанцию ПД-5 на основе шаблона
+    Загрузить конфигурацию бланка из JSON-файла.
 
-    Args:
-        student_name (str): ФИО ученика
-        courses (list): Список предметов
-        contract_number (str): Номер договора
-        month_year (str): Месяц/год
-        amount (float): Сумма к оплате
-        compensation (str): Компенсация (опционально)
-        output_path (str): Путь для сохранения PDF
+    Параметры:
+        json_path (str | Path): Путь к JSON-файлу.
 
-    Returns:
-        str: Путь к созданному файлу
+    Возвращает:
+        dict с ключами: source_template, font_size, line_height, roles, blocks.
+
+    Исключения:
+        FileNotFoundError: Если файл не найден.
     """
-    # ===== ПУТЬ К ШАБЛОНУ =====
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    template_path = os.path.join(current_dir, 'templates', 'receipt_template.pdf')
+    path = Path(json_path)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Файл конфигурации не найден: {path}\n"
+            f"Запустите find_coordinates.py для его создания."
+        )
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-    if not os.path.exists(template_path):
+
+# =======================
+# Генерация PDF
+# =======================
+
+def generate_pdf(
+    field_values: dict,
+    template_path: str | Path,
+    output_path: str | Path,
+    config: dict,
+) -> str:
+    """
+    Наложить текстовые данные на PDF-шаблон согласно конфигурации.
+
+    Универсальная функция — не зависит от структуры конкретного бланка.
+    Итерирует по блокам из config["blocks"], для каждой роли берёт
+    значение из field_values и рисует его по координатам из блока.
+    Значения-списки разворачиваются в многострочный текст.
+
+    Параметры:
+        field_values (dict): {роль: значение или список значений}.
+        template_path (str | Path): Путь к PDF-шаблону.
+        output_path (str | Path): Путь для сохранения результата.
+        config (dict): Конфигурация из load_template_config().
+
+    Возвращает:
+        str: Абсолютный путь к созданному файлу.
+
+    Исключения:
+        FileNotFoundError: Если шаблон не найден.
+    """
+    template_path = Path(template_path)
+    if not template_path.exists():
         raise FileNotFoundError(
             f"Шаблон не найден: {template_path}\n"
-            f"Поместите receipt_template.pdf в папку: {os.path.dirname(template_path)}"
+            f"Поместите шаблон в папку: {template_path.parent}"
         )
 
-    # ===== НАСТРОЙКА ШРИФТА =====
-    try:
-        import platform
-        system = platform.system()
+    font_size = config.get("font_size", 10)
+    line_height = config.get("line_height", 11)
+    blocks = config.get("blocks", [])
 
-        if system == 'Windows':
-            try:
-                pdfmetrics.registerFont(TTFont('TimesNewRoman', 'C:/Windows/Fonts/times.ttf'))
-                font_name = 'TimesNewRoman'
-            except:
-                font_name = 'Times-Roman'
-        else:
-            font_name = 'Times-Roman'
-
-    except Exception as e:
-        font_name = 'Times-Roman'
-
-    # ===== СОЗДАНИЕ OVERLAY =====
+    # Создание overlay
     packet = io.BytesIO()
     can = canvas.Canvas(packet, pagesize=A4)
-    can.setFont(font_name, 10)  # 10pt размер шрифта
+    can.setFont(_FONT_NAME, font_size)
 
-    # ===== КООРДИНАТЫ =====
-    coordinates_1 = {
-        'Ф.И.О': (230, 610),
-        'Вид платежа': (190, 550),
-        '№ договора': (380, 560),
-        'Месяц/год': (190, 468),
-        'компенсация': (275, 468),
-        'К оплате': (360, 468)
-    }
+    for block in blocks:
+        for role, coord in block.items():
+            value = field_values.get(role)
+            if not value:
+                continue
 
-    coordinates_0 = {
-        'Ф.И.О': (230, 255),
-        'Вид платежа': (190, 195),
-        '№ договора': (380, 205),
-        'Месяц/год': (190, 116),
-        'компенсация': (275, 116),
-        'К оплате': (360, 116)
-    }
+            x = coord["x"]
+            y = coord["y"]
 
-    line_height = 11  # 11pt межстрочный интервал
-
-
-    # ИЗВЕЩЕНИЕ (верх)
-    can.drawString(coordinates_1['Ф.И.О'][0], coordinates_1['Ф.И.О'][1], student_name)
-
-    x_courses, y_courses_start = coordinates_1['Вид платежа']
-    for i, course in enumerate(courses):
-        can.drawString(x_courses, y_courses_start - (i * line_height), course)
-
-    can.drawString(coordinates_1['№ договора'][0], coordinates_1['№ договора'][1], contract_number)
-    can.drawString(coordinates_1['Месяц/год'][0], coordinates_1['Месяц/год'][1], month_year)
-
-    if compensation:
-        can.drawString(coordinates_1['компенсация'][0], coordinates_1['компенсация'][1], compensation)
-
-    amount_str = f"{amount:,.2f}".replace(',', ' ')
-    can.drawString(coordinates_1['К оплате'][0], coordinates_1['К оплате'][1], amount_str)
-
-    # КВИТАНЦИЯ (низ)
-    can.drawString(coordinates_0['Ф.И.О'][0], coordinates_0['Ф.И.О'][1], student_name)
-
-    x_courses_bottom, y_courses_start_bottom = coordinates_0['Вид платежа']
-    for i, course in enumerate(courses):
-        can.drawString(x_courses_bottom, y_courses_start_bottom - (i * line_height), course)
-
-    can.drawString(coordinates_0['№ договора'][0], coordinates_0['№ договора'][1], contract_number)
-    can.drawString(coordinates_0['Месяц/год'][0], coordinates_0['Месяц/год'][1], month_year)
-
-    if compensation:
-        can.drawString(coordinates_0['компенсация'][0], coordinates_0['компенсация'][1], compensation)
-
-    can.drawString(coordinates_0['К оплате'][0], coordinates_0['К оплате'][1], amount_str)
+            # Список → многострочный текст с учётом line_height
+            if isinstance(value, list):
+                for i, line in enumerate(value):
+                    if line:
+                        can.drawString(x, y - i * line_height, str(line))
+            else:
+                can.drawString(x, y, str(value))
 
     can.save()
 
-    # ===== ОБЪЕДИНЕНИЕ С ШАБЛОНОМ =====
+    # Наложение overlay на шаблон
     packet.seek(0)
     overlay_pdf = PdfReader(packet)
     template_pdf = PdfReader(template_path)
 
-    output = PdfWriter()
+    writer = PdfWriter()
     page = template_pdf.pages[0]
     page.merge_page(overlay_pdf.pages[0])
-    output.add_page(page)
+    writer.add_page(page)
 
-    # Создать директорию если нужно
-    output_dir = os.path.dirname(output_path)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
+    output_file_path = Path(output_path)
+    output_file_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_file_path, "wb") as f:
+        writer.write(f)
 
-    with open(output_path, 'wb') as output_file:
-        output.write(output_file)
-
-    return os.path.abspath(output_path)
+    return str(output_file_path.resolve())
 
 
-def generate_receipt_from_dict(data, output_path='receipt_output.pdf'):
+# =======================
+# Генерация квитанции
+# =======================
+
+def generate_receipt(
+    student_name: str,
+    courses: list[str],
+    contract_number: str,
+    month_year: str,
+    amount: float,
+    compensation: str,
+    output_path: str,
+    coordinates_path: str | Path | None = None,
+) -> str:
     """
-    Генерирует квитанцию из словаря с данными
+    Сгенерировать квитанцию ПД-5.
 
-    Args:
-        data (dict): Словарь с ключами:
-            - 'Ф.И.О': str
-            - 'Вид платежа': list[str]
-            - '№ договора': str
-            - 'Месяц/год': str
-            - 'К оплате': float
-            - 'компенсация': str (опционально)
-        output_path (str): Путь для сохранения
+    Обёртка над generate_pdf — формирует field_values из аргументов
+    и вызывает универсальный генератор. Имена ролей должны совпадать
+    с теми, что введены при создании JSON через find_coordinates.py.
 
-    Returns:
-        str: Путь к созданному файлу
+    Параметры:
+        student_name (str): ФИО ученика.
+        courses (list[str]): Список предметов (многострочно).
+        contract_number (str): Номер договора.
+        month_year (str): Месяц и год платежа.
+        amount (float): Сумма к оплате.
+        compensation (str): Сумма компенсации (пустая — не печатается).
+        output_path (str): Путь для сохранения PDF.
+        coordinates_path (str | Path | None): Путь к JSON конфигурации.
+            По умолчанию templates/receipt_coordinates.json.
+
+    Возвращает:
+        str: Абсолютный путь к созданному PDF.
+    """
+    # Нормализация
+    student_name = str(student_name)
+    contract_number = str(contract_number)
+    month_year = str(month_year)
+    compensation = str(compensation) if compensation else ""
+    amount = float(amount)
+
+    if not isinstance(courses, list):
+        courses = [str(courses)]
+    else:
+        courses = [str(c) for c in courses if str(c).strip()]
+
+    if not courses:
+        raise ValueError("Список предметов не может быть пустым")
+
+    amount_str = f"{amount:,.2f}".replace(",", " ")
+
+    # Загрузка конфигурации
+    if coordinates_path is None:
+        coordinates_path = (
+            Path(__file__).parent / "templates" / "receipt_coordinates.json"
+        )
+    config = load_template_config(coordinates_path)
+    template_path = Path(__file__).parent / "templates" / config["source_template"]
+
+    # Формирование данных — имена ролей берутся из JSON, не из кода
+    roles = config.get("roles", [])
+    field_values = {}
+    role_map = {
+        # Стандартные роли квитанции → значения
+        # Ищем по вхождению подстроки для гибкости
+        "ФИО": student_name,
+        "Вид платежа": courses,
+        "№ договора": contract_number,
+        "Месяц/год": month_year,
+        "компенсация": compensation,
+        "К оплате": amount_str,
+    }
+    for role in roles:
+        # Точное совпадение
+        if role in role_map:
+            field_values[role] = role_map[role]
+
+    return generate_pdf(field_values, template_path, output_path, config)
+
+
+def generate_receipt_from_dict(
+    data: dict,
+    output_path: str = "receipt_output.pdf",
+) -> str:
+    """
+    Сгенерировать квитанцию из словаря.
+
+    Параметры:
+        data (dict): Ключи: 'Ф.И.О', 'Вид платежа', '№ договора',
+                     'Месяц/год', 'К оплате', 'компенсация' (опц.).
+        output_path (str): Путь для сохранения.
+
+    Возвращает:
+        str: Абсолютный путь к файлу.
     """
     return generate_receipt(
-        student_name=data['Ф.И.О'],
-        courses=data['Вид платежа'],
-        contract_number=data['№ договора'],
-        month_year=data['Месяц/год'],
-        amount=data['К оплате'],
-        compensation=data.get('компенсация', ''),
-        output_path=output_path
+        student_name=data["Ф.И.О"],
+        courses=data["Вид платежа"],
+        contract_number=data["№ договора"],
+        month_year=data["Месяц/год"],
+        amount=data["К оплате"],
+        compensation=data.get("компенсация", ""),
+        output_path=output_path,
     )
 
 
 if __name__ == "__main__":
-    print("✅ receipt generator загружен")
+    print("✅ generator загружен")
     print("📋 Используйте: python -m cli.commands generate-receipt-cmd")
