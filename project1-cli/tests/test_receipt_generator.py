@@ -26,12 +26,12 @@ class TestReceiptGenerator(unittest.TestCase):
     def setUp(self):
         """Подготовка к тестам"""
         self.test_data = {
-            'Ф.И.О': 'Тестовый Ученик Тестович',
-            'Вид платежа': ['Математика', 'Физика'],
-            '№ договора': '8БТ-TEST',
-            'Месяц/год': 'Январь',
-            'компенсация': '',
-            'К оплате': 5000.0
+            'student_name': 'Тестовый Ученик Тестович',
+            'courses': ['Математика', 'Физика'],
+            'contract_number': '8БТ-TEST',
+            'month_year': 'Январь',
+            'compensation': '',
+            'amount': 5000.0
         }
 
     def test_01_generate_receipt_from_dict(self):
@@ -59,8 +59,8 @@ class TestReceiptGenerator(unittest.TestCase):
     def test_02_generate_receipt_with_compensation(self):
         """Тест с компенсацией"""
         test_data = self.test_data.copy()
-        test_data['компенсация'] = '500'
-        test_data['Ф.И.О'] = 'Петрова Анна Сергеевна'
+        test_data['compensation'] = '500'
+        test_data['student_name'] = 'Петрова Анна Сергеевна'
 
         output_path = os.path.join(
             self.test_results_dir,
@@ -76,14 +76,14 @@ class TestReceiptGenerator(unittest.TestCase):
     def test_03_generate_receipt_multiple_courses(self):
         """Тест с несколькими предметами"""
         test_data = self.test_data.copy()
-        test_data['Вид платежа'] = [
+        test_data['courses'] = [
             'Математика',
             'Физика',
             'Химия',
             'Биология'
         ]
-        test_data['Ф.И.О'] = 'Иванов Иван Иванович'
-        test_data['К оплате'] = 8000.0
+        test_data['student_name'] = 'Иванов Иван Иванович'
+        test_data['amount'] = 8000.0
 
         output_path = os.path.join(
             self.test_results_dir,
@@ -99,9 +99,9 @@ class TestReceiptGenerator(unittest.TestCase):
     def test_04_generate_receipt_single_course(self):
         """Тест с одним предметом"""
         test_data = self.test_data.copy()
-        test_data['Вид платежа'] = ['Английский язык']
-        test_data['Ф.И.О'] = 'Сидорова Мария Петровна'
-        test_data['К оплате'] = 3500.0
+        test_data['courses'] = ['Английский язык']
+        test_data['student_name'] = 'Сидорова Мария Петровна'
+        test_data['amount'] = 3500.0
 
         output_path = os.path.join(
             self.test_results_dir,
@@ -116,8 +116,8 @@ class TestReceiptGenerator(unittest.TestCase):
     def test_05_generate_receipt_decimal_amount(self):
         """Тест с дробной суммой"""
         test_data = self.test_data.copy()
-        test_data['К оплате'] = 4500.50
-        test_data['Ф.И.О'] = 'Козлов Дмитрий Александрович'
+        test_data['amount'] = 4500.50
+        test_data['student_name'] = 'Козлов Дмитрий Александрович'
 
         output_path = os.path.join(
             self.test_results_dir,
@@ -169,12 +169,12 @@ class TestReceiptGeneratorEdgeCases(unittest.TestCase):
     def test_07_long_student_name(self):
         """Тест с очень длинным ФИО"""
         test_data = {
-            'Ф.И.О': 'Очень-Длинное-Составное-Фамилие-Имя Александр Константинович',
-            'Вид платежа': ['Математика'],
-            '№ договора': '8БТ-1',
-            'Месяц/год': 'Февраль',
-            'компенсация': '',
-            'К оплате': 3000.0
+            'student_name': 'Очень-Длинное-Составное-Фамилие-Имя Александр Константинович',
+            'courses': ['Математика'],
+            'contract_number': '8БТ-1',
+            'month_year': 'Февраль',
+            'compensation': '',
+            'amount': 3000.0
         }
 
         output_path = os.path.join(
@@ -190,15 +190,15 @@ class TestReceiptGeneratorEdgeCases(unittest.TestCase):
     def test_08_many_courses(self):
         """Тест с большим количеством предметов"""
         test_data = {
-            'Ф.И.О': 'Иванов Иван',
-            'Вид платежа': [
+            'student_name': 'Иванов Иван',
+            'courses': [
                 'Математика', 'Физика', 'Химия',
                 'Биология', 'География', 'История'
             ],
-            '№ договора': '8БТ-1',
-            'Месяц/год': 'Март',
-            'компенсация': '',
-            'К оплате': 12000.0
+            'contract_number': '8БТ-1',
+            'month_year': 'Март',
+            'compensation': '',
+            'amount': 12000.0
         }
 
         output_path = os.path.join(
@@ -214,16 +214,16 @@ class TestReceiptGeneratorEdgeCases(unittest.TestCase):
     def test_09_long_course_names(self):
         """Тест с длинными названиями предметов"""
         test_data = {
-            'Ф.И.О': 'Сидоров Семен Семенович',
-            'Вид платежа': [
+            'student_name': 'Сидоров Семен Семенович',
+            'courses': [
                 'Молекулярная биология и генетика',
                 'Органическая химия и биохимия',
                 'Математический анализ'
             ],
-            '№ договора': '8БТ-7',
-            'Месяц/год': 'Апрель',
-            'компенсация': '1000',
-            'К оплате': 7500.0
+            'contract_number': '8БТ-7',
+            'month_year': 'Апрель',
+            'compensation': '1000',
+            'amount': 7500.0
         }
 
         output_path = os.path.join(
@@ -239,12 +239,12 @@ class TestReceiptGeneratorEdgeCases(unittest.TestCase):
     def test_10_cyrillic_characters(self):
         """Тест корректности работы с кириллицей"""
         test_data = {
-            'Ф.И.О': 'Щербаков Ярослав Юрьевич',
-            'Вид платежа': ['Русский язык', 'Литература'],
-            '№ договора': '8БТ-Ю',
-            'Месяц/год': 'Май',
-            'компенсация': '',
-            'К оплате': 4000.0
+            'student_name': 'Щербаков Ярослав Юрьевич',
+            'courses': ['Русский язык', 'Литература'],
+            'contract_number': '8БТ-Ю',
+            'month_year': 'Май',
+            'compensation': '',
+            'amount': 4000.0
         }
 
         output_path = os.path.join(
@@ -260,12 +260,12 @@ class TestReceiptGeneratorEdgeCases(unittest.TestCase):
     def test_11_zero_compensation(self):
         """Тест с нулевой компенсацией"""
         test_data = {
-            'Ф.И.О': 'Тестов Тест Тестович',
-            'Вид платежа': ['Тестирование'],
-            '№ договора': '8БТ-0',
-            'Месяц/год': 'Январь',
-            'компенсация': '0',
-            'К оплате': 1000.0
+            'student_name': 'Тестов Тест Тестович',
+            'courses': ['Тестирование'],
+            'contract_number': '8БТ-0',
+            'month_year': 'Январь',
+            'compensation': '0',
+            'amount': 1000.0
         }
 
         output_path = os.path.join(
@@ -281,12 +281,12 @@ class TestReceiptGeneratorEdgeCases(unittest.TestCase):
     def test_12_large_amount(self):
         """Тест с большой суммой"""
         test_data = {
-            'Ф.И.О': 'Богатов Богат Богатович',
-            'Вид платежа': ['VIP Программа'],
-            '№ договора': '8БТ-VIP',
-            'Месяц/год': 'Декабрь',
-            'компенсация': '',
-            'К оплате': 99999.99
+            'student_name': 'Богатов Богат Богатович',
+            'courses': ['VIP Программа'],
+            'contract_number': '8БТ-VIP',
+            'month_year': 'Декабрь',
+            'compensation': '',
+            'amount': 99999.99
         }
 
         output_path = os.path.join(
@@ -321,12 +321,12 @@ class TestReceiptGeneratorErrors(unittest.TestCase):
     def test_missing_template(self):
         """Тест ошибки при отсутствии шаблона"""
         test_data = {
-            'Ф.И.О': 'Тест',
-            'Вид платежа': ['Тест'],
-            '№ договора': '1',
-            'Месяц/год': 'Январь',
-            'компенсация': '',
-            'К оплате': 1000.0
+            'student_name': 'Тест',
+            'courses': ['Тест'],
+            'contract_number': '1',
+            'month_year': 'Январь',
+            'compensation': '',
+            'amount': 1000.0
         }
 
         # Этот тест не создает файл в test_results
