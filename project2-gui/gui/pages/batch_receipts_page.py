@@ -281,7 +281,8 @@ class BatchReceiptsPage:
             )
 
             if class_id and class_info:
-                is_exam_class = class_info.get("price_calculation") == "per_subject"
+                is_exam_class = class_info.get("pricing", {}).get("type") == "per_subject"
+
                 if is_exam_class:
                     subjects = self.exam_db.get_student_exams(student["id"])
                     if not subjects:
@@ -745,10 +746,13 @@ class BatchReceiptsPage:
 
         total = len(selected_students)
         for i, student_data in enumerate(selected_students):
+            print(student_data.keys())
             try:
+
                 fio = str(student_data["fio"].value)
                 contract = str(student_data["contract"].value)
                 amount = float(student_data["amount"].value)
+
                 compensation = str(student_data["compensation"].value)
                 courses = [str(c) for c in student_data["subjects"] if c]
 
@@ -756,6 +760,13 @@ class BatchReceiptsPage:
                     error_count += 1
                     errors.append(f"{fio}: Нет предметов")
                     continue
+                '''
+                elif class_ == '11': #@
+                    print(self.exam_db["id"])
+                    #courses =
+                '''
+
+
 
                 progress_text.value = f"Создание квитанции {i + 1}/{total}: {fio}"
                 progress_bar.value = (i + 1) / total * 0.8
