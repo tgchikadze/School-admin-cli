@@ -56,7 +56,7 @@ project1-cli/
    git checkout dev
    ```
 
-2. Создайте и активируйте виртуальное окружение (по желанию):
+2. Создайте и активируйте виртуальное окружение:
    ```bash
    python -m venv venv
    venv\Scripts\activate
@@ -87,7 +87,7 @@ python -m cli --help
 - `copy`
 - `search`
 - `analyze`
-- `generate-receipt-cmd` (или `generate-receipt`, если переименуешь `name=` в декораторе)
+- `generate-receipt-cmd` 
 - `generate-from-json`
 
 ### Анализ директории
@@ -103,7 +103,7 @@ python -m cli analyze "./tests"
 - абсолютный путь директории;
 - общее количество файлов;
 - суммарный размер (в байтах, MB и GB);
-- топ крупнейших файлов и подпапок.
+- топ файлов и подпапок.
 
 ### Поиск файлов
 
@@ -121,7 +121,7 @@ python -m cli search "./core" "*.py"
 Если файлы не найдены, выводится предупреждение:
 
 ```text
-⚠️ Файлы не найдены по паттерну: <pattern>
+⚠️ Файлы не найдены по паттерну: "*.py"
 ```
 
 ### Копирование файла
@@ -138,7 +138,7 @@ python -m cli copy "README.md" "backup/README.md"
 
 ### Генерация квитанции из аргументов
 
-Команда `generate-receipt-cmd` (или `generate-receipt`, если задано `name="generate-receipt"` в декораторе):
+Команда `generate-receipt-cmd`:
 
 ```bash
 python -m cli generate-receipt-cmd \
@@ -182,18 +182,18 @@ python -m cli generate-from-json "student.json" -o "receipt_json.pdf"
 Ошибки:
 
 - несуществующий файл — стандартная ошибка Click для `Path(exists=True)`;
-- некорректный JSON — обрабатывается в `generate_from_json` и выводит понятное сообщение.
+- некорректный JSON — обрабатывается в `generate_from_json` и выводит сообщение.
 
 ## Тестирование
 
 - `tests/test_file_manager.py` проверяет:
   - поиск файлов (по имени и расширению);
   - анализ директории (структура `breakdown`, размеры, ошибки);
-  - копирование файлов, в т.ч. с несуществующим источником и перезаписью [file:24].
+  - копирование файлов, в т.ч. с несуществующим источником и перезаписью.
 - `tests/test_receipt_generator.py` проверяет:
   - генерацию квитанций для разных сценариев (несколько предметов, компенсация, разные суммы);
   - корректность формата PDF (проверка заголовка `%PDF`);
-  - сохранение результатов в `tests/test_results/` [file:25].
+  - сохранение результатов в `tests/test_results/`.
 
 Запуск всех тестов проекта 1:
 
