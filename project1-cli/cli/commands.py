@@ -11,13 +11,8 @@ import json
 import click
 
 
-@click.group()
-def cli():
-    """Файловый менеджер с генерацией квитанций."""
-    pass
 
-
-@cli.command()
+@click.command()
 @click.argument('source', type=click.Path(exists=True))
 @click.argument('destination', type=click.Path())
 def copy(source, destination):
@@ -35,7 +30,7 @@ def copy(source, destination):
         sys.exit(1)
 
 
-@cli.command()
+@click.command()
 @click.argument('directory', type=click.Path(exists=True))
 @click.argument('pattern')
 def search(directory, pattern):
@@ -60,7 +55,7 @@ def search(directory, pattern):
         sys.exit(1)
 
 
-@cli.command()
+@click.command()
 @click.argument('directory', type=click.Path(exists=True))
 def analyze(directory):
     """
@@ -87,7 +82,7 @@ def analyze(directory):
         sys.exit(1)
 
 
-@cli.command()
+@click.command()
 @click.argument('student_name')
 @click.argument('contract_number')
 @click.argument('month_year')
@@ -125,9 +120,11 @@ def generate_receipt_cmd(student_name, contract_number, month_year,
         sys.exit(1)
 
 
-@cli.command()
+@click.command()
 @click.argument('json_file', type=click.Path(exists=True))
 @click.option('-o', '--output', default='receipt_output.pdf', help='Путь для сохранения')
+
+
 def generate_from_json(json_file, output):
     """
     Генерирует квитанцию из JSON файла.
@@ -136,20 +133,25 @@ def generate_from_json(json_file, output):
     """
     try:
         from core.receipt.generator import generate_receipt_from_dict
-        with open(json_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except UnicodeDecodeError:
+            click.echo(f"❌ Некорректная кодировка файла: {json_file}", err=True)
+            sys.exit(1)
+        except json.JSONDecodeError:
+            click.echo(f"❌ Некорректный JSON файл: {json_file}", err=True)
+            sys.exit(1)
+
         result = generate_receipt_from_dict(data, output)
         click.echo(f"✅ Квитанция создана: {result}")
+
     except FileNotFoundError as e:
         click.echo(f"❌ {e}", err=True)
         sys.exit(1)
-    except json.JSONDecodeError:
-        click.echo(f"❌ Некорректный JSON файл: {json_file}", err=True)
-        sys.exit(1)
     except Exception as e:
-        click.echo(f"❌ Ошибка: {e}", err=True)
+        click.echo(f"❌ Ошибка при генерации квитанции: {e}", err=True)
         sys.exit(1)
 
 
-if __name__ == '__main__':
-    cli()
