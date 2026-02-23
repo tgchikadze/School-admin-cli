@@ -1,0 +1,11 @@
+timestamp,university_id,university_name,city,program_name,program_level,okso_code,min_score,avg_score,budget_places,cost,ege_subjects,achievements,source,page_url
+2026-02-23 02:28:28,itmo,ИТМО,Санкт-Петербург,Инфохимия,бакалавриат,18.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/13071/
+2026-02-23 02:28:30,itmo,ИТМО,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programmy-obucheniya/bakalavr/?fexams%5B0%5D=12
+2026-02-23 02:28:32,itmo,ИТМО,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/specialnosti/bakalavr/ege-himiya/
+2026-02-23 02:28:34,itmo,ИТМО,Санкт-Петербург,Биотехнология,бакалавриат,19.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/biotekhnologiya/
+2026-02-23 02:28:36,itmo,ИТМО,Санкт-Петербург,Биоинженерия,бакалавриат,12.03.04,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/10952/
+2026-02-23 02:28:38,itmo,ИТМО,Санкт-Петербург,Компьютерные науки / ИВТ,бакалавриат,09.03.01,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.01/
+2026-02-23 02:28:40,itmo,ИТМО,Санкт-Петербург,Информационные системы и технологии,бакалавриат,09.03.02,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.02/
+2026-02-23 02:28:43,itmo,ИТМО,Санкт-Петербург,Прикладная информатика,бакалавриат,09.03.03,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.03/
+2026-02-23 02:28:45,itmo,ИТМО,Санкт-Петербург,Программная инженерия,бакалавриат,09.03.04,,,,,,,postupi,https://spb.postupi.online/specialnosti/09.03.04/
+2026-02-23 02:28:47,itmo,ИТМО,Санкт-Петербург,Прикладная математика и информатика,бакалавриат,01.03.02,,,,,,,postupi,https://spb.postupi.online/specialnost/01.03.02/
