@@ -11,22 +11,34 @@
 """
 from scrapers.postupi_scraper import PostupiScraper
 from scrapers.olymp_scraper import OlympScraper, OlympBenefitsScraper
+from scrapers.official_site_scraper import OfficialSiteScraper
+
 
 
 def main() -> None:
     print("🚀 Запуск скрапера вузов и олимпиад...")
 
-    uni_records = []
-    olymp_records_olimpiada = []
-    olymp_records_benefits = []
+    uni_records_postupi = []
+    uni_records_official = []
 
     # Скрапер Поступить Онлайн (программы)
     try:
         postupi = PostupiScraper()
-        uni_records = postupi.scrape()
-        print(f"✅ PostupiScraper: {len(uni_records)} записей")
+        uni_records_postupi = postupi.scrape()
+        print(f"✅ PostupiScraper: {len(uni_records_postupi)} записей")
     except Exception as e:
         print(f"❌ Ошибка в PostupiScraper: {e}")
+
+    # Скрапер официальных сайтов (HTML + PDF)
+    try:
+        official = OfficialSiteScraper()
+        uni_records_official = official.scrape()
+        print(f"✅ OfficialSiteScraper: {len(uni_records_official)} записей")
+    except Exception as e:
+        print(f"❌ Ошибка в OfficialSiteScraper: {e}")
+
+    olymp_records_olimpiada = []
+    olymp_records_benefits = []
 
     # Скрапер олимпиад с olimpiada.ru
     try:
@@ -45,12 +57,14 @@ def main() -> None:
             f"{len(olymp_records_benefits)} записей"
         )
     except Exception as e:
-        print(f"❌ OlympBenefitsScraper: {e}")
+        print(f"❌ Ошибка в OlympBenefitsScraper: {e}")
 
+    total_uni = len(uni_records_postupi) + len(uni_records_official)
     total_olymp = len(olymp_records_olimpiada) + len(olymp_records_benefits)
 
+
     print("🏁 Скрапинг завершён.")
-    print(f"   Вузовских записей: {len(uni_records)}")
+    print(f"   Вузовских записей: {len(total_uni)}")
     print(f"   Олимпиадных записей: {total_olymp}")
 
 
