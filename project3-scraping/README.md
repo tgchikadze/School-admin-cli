@@ -39,33 +39,30 @@
 project3-scraping/
 ├── scrapers/
 │   ├── base_scraper.py        # Базовый класс: requests + BS4, ретраи, логирование
-│   ├── postupi_scraper.py     # Парсер вузов и направлений (баллы, стоимость, ЕГЭ)
-│   └── olymp_scraper.py       # Парсер олимпиад и льгот вузов
-├── scheduler/
-│   └── runner.py              # Непрерывный запуск через schedule
+│   ├── postupi_scraper.py     # Парсер вузов и направлений на postupi.ru (баллы, стоимость, ЕГЭ)
+│   ├── olymp_scraper.py       # Парсер олимпиад и льгот для вузов
+│   └── official_site_scraper.py # Парсер официальных сайтов вузов       
 ├── data/
 │   ├── universities_raw.csv   # Сырые данные по вузам (все запуски)
 │   ├── olympiads_raw.csv      # Сырые данные по олимпиадам
 │   └── partners.json          # Актуальный срез для API/финального проекта
-├── analysis/
-│   ├── analyze.py             # Анализ и построение отчётов
-│   └── reports/
-│       ├── min_scores_chart.png   # График минимальных баллов
-│       ├── universities_summary.csv
-│       └── olympiads_summary.csv
+│   ├── urls_for_parsers_all.csv  # Собранные ссылки по вузам (пополняется)
+│   ├── universities_raw.csv   # Собранные ссылки по олимпиадам (пополняется)
+    └── reports/
+       ├── ...                  # Аналитические отчеты
 ├── tests/
 │   └── test_scraper.py        # Минимальные unit-тесты
 ├── config.py                  # Список вузов, направлений, URL и настроек
 ├── run_scraper.py             # 🚪 Точка входа для запуска скрапера
+├── analyze_data.py
+├── scheduler.py                # Непрерывный запуск через schedule
 ├── requirements.txt
 └── README.md                  # (этот файл)
 ```
 
----
-
 ## Зависимости и установка
 
-Из корня **монорепозитория**:
+Из корня **моно-репозитория**:
 
 ```bash
 pip install -r requirements.txt
@@ -102,6 +99,8 @@ python run_scraper.py
   - соберёт льготы по нашим вузам;
   - допишет строки в `data/olympiads_raw.csv`;
   - допишет в секцию `olympiads` внутри `data/partners.json`.
+- Сработает 'Cleaner':
+  - очистятся дубли, удалятся мусорные ссылки и пр. из csv с сылками
 
 ### 2. Непрерывный режим (планировщик)
 
@@ -180,7 +179,7 @@ python analysis/analyze.py
 - `analysis/reports/min_scores_chart.png` — столбчатый график минимальных баллов по вузам и направлениям.
 - `analysis/reports/universities_summary.csv` — сводная таблица по вузам (актуальные минимальные баллы, стоимость, места).
 - `analysis/reports/olympiads_summary.csv` — сводная таблица олимпиад и льгот по вузам.
-
+и др.
 ---
 
 ## Тесты

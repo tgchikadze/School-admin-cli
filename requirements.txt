@@ -1,12 +1,21 @@
-reportlab==4.0.9
-click==8.1.7
-pypdf==4.0.1
-requests==2.31.0
-beautifulsoup4==4.12.3
-lxml==5.1.0
-schedule==1.2.1
-pandas==2.2.0
-matplotlib==3.8.2
-pdfplumber>=0.11.0
-beautifulsoup4>=4.12.0
+# ==========================================
+# requirements.txt — Project 3: Web Scraper
+# ==========================================
 
+# --- Скрапинг ---
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# --- Парсинг PDF ---
+pdfplumber>=0.10.0
+
+# --- Данные и анализ ---
+pandas>=2.1.0
+matplotlib>=3.8.0
+
+# --- Планировщик ---
+schedule>=1.2.0
+
+# --- Тестирование ---
+pytest>=8.0.0

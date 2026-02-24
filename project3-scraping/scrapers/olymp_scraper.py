@@ -28,6 +28,7 @@ from typing import Any
 from pathlib import Path
 from scrapers.base_scraper import BaseScraper
 from urllib.parse import urljoin, urlparse
+from tools.benefit_classifier import classify_benefit
 
 
 from config import (
@@ -168,7 +169,7 @@ class OlympBenefitsScraper(BaseScraper):
             "program_level": row.get("program_level", ""),
             # Ожидаемый тип льготы берём из csv (bvi;ege_100;id_points),
             # а подробности — из PDF.
-            "benefit_type": row.get("benefit_types", ""),
+            "benefit_type": row.get("benefit_types", "") or classify_benefit(snippet),
             "benefit_detail": snippet,
             "profiles": "",
             "source_site": row.get("source_site", ""),
