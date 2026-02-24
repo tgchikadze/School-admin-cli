@@ -69,7 +69,7 @@ UNIVERSITIES = [
             "Химия лекарственных соединений",
         ],
         "postupi_url": "https://spb.postupi.online/vuz/spkhfu/",
-        "official_url": "https://pharminnotech.com",
+        "official_url": "https://www.spbpu-pharm.ru",
     },
 
     {
@@ -192,7 +192,8 @@ UNIVERSITIES = [
             "Биотехнология",
         ],
         "postupi_url": "https://spb.postupi.online/vuz/spbguvm/",
-        "official_url": "https://www.spbguvm.ru",
+        "official_url": "https://www.spbguvm.ru/academy/napravleniya-podgotovki/",
+
     },
 
     # ==============================
@@ -286,7 +287,8 @@ UNIVERSITIES = [
             "Химическая технология",
         ],
         "postupi_url": "https://postupi.online/vuz/rgau-msha/",
-        "official_url": "https://rosbiotech.msu.ru",
+        "official_url": "https://www.timacad.ru",
+
     },
 
     # ==============================
@@ -327,7 +329,9 @@ SOURCES = {
 
 SCRAPER_SETTINGS = {
     "request_delay_sec": 2,       # Задержка между запросами (вежливость)
-    "request_timeout_sec": 15,
+    "request_timeout_sec": 10,
+    "request_timeout_sec_postupi": 8,
+
     "max_retries": 3,
     "schedule_interval_hours": 6, # Интервал планировщика
     "user_agent": (
@@ -347,6 +351,30 @@ OLYMPIADS_CSV_PATH = "data/olymp_all.csv"              # конфиг по ол�
 RAW_UNIVERSITIES_CSV = "data/universities_raw.csv"
 RAW_OLYMPIADS_CSV = "data/olympiads_raw.csv"
 PARTNERS_JSON = "data/partners.json"
-PDF_BLOCKLIST = ['footer', 'personaldatapolicy', 'cookie', 'dogovor',
-                 'reglament', 'oferty', 'Kollektivnyy', 'license']
+PDF_BLOCKLIST = [
+    # --- Были раньше (8) ---
+    'footer',
+    'personaldatapolicy',
+    'cookie',
+    'dogovor',
+    'reglament',
+    'oferty',
+    'Kollektivnyy',
+    'license',
+    # --- Новые (13) — предотвращают повторное появление мусора ---
+    'personal_data',       # personal_data_policy.pdf (СПбПУ, ИТМО)
+    'personal_cookie',     # personal_cookie.pdf (СПбПУ)
+    'Pravila_ispolz',      # Pravila_ispolzovanija_informacii.pdf (ИТМО)
+    'Evrobuklet',          # Evrobuklet_1-_1_.pdf (Герцен, маркетинг)
+    'donorstvo',           # донорство_крови.pdf (СЗГМУ)
+    'донорство',           # кириллический дубль
+    'bankovsk',            # Банковские_реквизиты (СПбГПМУ)
+    'Банковск',            # кириллический дубль
+    'реквизит',            # банковские реквизиты (кириллица)
+    'oplat',               # Инструкция_по_оплате (ПСПбГМУ Павлова)
+    'оплат',               # кириллический дубль
+    'informirovan',        # Ob_informirovanii_obuchayuschixsya...kredita (СПбГУВМ)
+    'kredita',             # образовательный кредит (СПбГУВМ)
+]
+
 

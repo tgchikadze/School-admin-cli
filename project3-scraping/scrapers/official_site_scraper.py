@@ -3,6 +3,9 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from io import BytesIO
+from urllib.parse import urlparse, urljoin
+
 
 import pdfplumber
 from bs4 import BeautifulSoup  # если уже используешь, иначе добавить в requirements
@@ -46,28 +49,34 @@ class OfficialSiteScraper(BaseScraper):
 
         # 1) HTML/PDF по official_url активных вузов
         for uni in UNIVERSITIES:
-            if not uni.get("active", True) or uni in self.visited:
+            if not uni.get("active", True):
                 continue
             uni_id = uni["id"]
+            if uni_id in self.visited:
+                continue
+            self.visited.add(uni_id)
+
             official_url = uni.get("official_url")
             if not official_url:
                 continue
-
             recs = self._scrape_university_official_page(uni, official_url)
             records.extend(recs)
 
-        # 2) HTML/PDF по urls_for_parsers_all.csv (programs_page_url + content_type)
+        # 2) HTML/PDF по urls_for_parsers_all.csv
         url_rows = self._load_program_targets()
         for row in url_rows:
-            if not row.get("active") or row in self.visited:
+            if not row.get("active"):
                 continue
+            programs_page_url = row.get("programs_page_url") or row.get("program_detail_url")
+            if not programs_page_url:
+                continue
+            if programs_page_url in self.visited:
+                continue
+            self.visited.add(programs_page_url)
+
             uni_id = row["university_id"]
             uni = self._get_university_by_id(uni_id)
             if not uni:
-                continue
-
-            programs_page_url = row.get("programs_page_url") or row.get("program_detail_url")
-            if not programs_page_url:
                 continue
 
             content_type = (row.get("content_type") or "html").lower()
@@ -75,13 +84,12 @@ class OfficialSiteScraper(BaseScraper):
                 recs = self._parse_official_pdf(uni, row, programs_page_url)
             else:
                 recs = self._parse_official_html(uni, row, programs_page_url)
-
             records.extend(recs)
 
-        # 3) Обновляем partners.json структурированными данными
+        # 3) Обновляем partners.json
         if records:
             self._update_partners_json(records)
-
+            self._save_csv(records)
         self.logger.info(f"OfficialSiteScraper: собрано {len(records)} записей")
         return records
 
@@ -137,10 +145,10 @@ class OfficialSiteScraper(BaseScraper):
         admission_text = self._extract_admission_text(soup)
 
         # 2) Найти PDF-ссылки в HTML и дописать их в конфиги
-        #new_pdf_links = self._extract_pdf_links(soup, base_url=url)
-
-        new_pdf_links = [l for l in self._extract_pdf_links(soup, base_url=url)
-                     if not any(block in l for block in PDF_BLOCKLIST)]
+        new_pdf_links = [
+            l for l in self._extract_pdf_links(soup, base_url=url)
+            if not any(block.lower() in l.lower() for block in PDF_BLOCKLIST)
+        ]
 
         if new_pdf_links:
             self._patch_programs_csv_with_pdfs(uni, new_pdf_links)
@@ -229,7 +237,11 @@ class OfficialSiteScraper(BaseScraper):
 
 
         # На этих страницах также ищем новые PDF-ссылки
-        new_pdf_links = self._extract_pdf_links(soup, base_url=url)
+        new_pdf_links = [
+            l for l in self._extract_pdf_links(soup, base_url=url)
+            if not any(block.lower() in l.lower() for block in PDF_BLOCKLIST)
+        ]
+
         if new_pdf_links:
             self._patch_programs_csv_with_pdfs(uni, new_pdf_links)
             self._patch_olymp_all_with_pdfs(uni, new_pdf_links)
@@ -270,8 +282,9 @@ class OfficialSiteScraper(BaseScraper):
 
         text_chunks = []
         try:
-            response = self.session.get(url, stream=True, timeout=30)
-            with pdfplumber.open(response.raw) as pdf:
+            response = self.session.get(url, timeout=30)
+            response.raise_for_status()
+            with pdfplumber.open(BytesIO(response.content)) as pdf:
                 for page in pdf.pages:
                     page_text = page.extract_text() or ""
                     if page_text:
@@ -526,7 +539,6 @@ class OfficialSiteScraper(BaseScraper):
         Простейший helper для формирования абсолютного URL.
         Можно заменить на urljoin из urllib.parse.
         """
-        from urllib.parse import urljoin
 
         return urljoin(base_url, href)
 
@@ -608,6 +620,14 @@ class OfficialSiteScraper(BaseScraper):
 
         Пока добавляем все PDF этого вуза как low-priority записи без детализации.
         """
+        uni_domain = urlparse(uni.get("official_url", "")).netloc.replace("www.", "").lower()
+        pdf_urls = [
+            u for u in pdf_urls
+            if uni_domain and uni_domain in urlparse(u).netloc.replace("www.", "").lower()
+        ]
+        if not pdf_urls:
+            return
+
         path = Path(OLYMPIADS_CSV_PATH)
         existing_rows: List[Dict[str, Any]] = []
         existing_urls: set[str] = set()
@@ -668,6 +688,9 @@ class OfficialSiteScraper(BaseScraper):
         self.logger.info(
             f"olymp_all.csv дополнен {len(new_rows)} PDF-ссылками для {uni['short_name']}"
         )
+
+
+
 
     # ---------- Обновление partners.json ----------
 
@@ -748,26 +771,39 @@ class OfficialSiteScraper(BaseScraper):
 
         self.logger.info(f"partners.json обновлён official-данными ({len(records)} записей)")
 
-    def _save_csv(self, records: list[dict[str, Any]]) -> None:
-        """
-        Сохранить данные с официальных сайтов в общий RAW-CSV по вузам.
-        """
+    def _save_csv(self, records: list[dict]) -> None:
+        """Дописать записи в raw CSV, но с дедупликацией по timestamp+url."""
         if not records:
-            self.logger.info("OfficialSiteScraper: нет данных для сохранения")
             return
 
-        path = Path(RAW_UNIVERSITIES_CSV)
+        path = Path(RAW_OLYMPIADS_CSV)  # или RAW_UNIVERSITIES_CSV
         path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Читаем существующие URL, чтобы не дублировать
+        existing_keys: set[str] = set()
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    key = row.get("olympiad_url", "") or row.get("page_url", "")
+                    existing_keys.add(key.strip())
+
+        # Фильтруем новые записи
+        new_records = [
+            r for r in records
+            if (r.get("olympiad_url", "") or r.get("page_url", "")).strip()
+               not in existing_keys
+        ]
+
+        if not new_records:
+            self.logger.info("Нет новых записей для raw CSV")
+            return
+
         file_exists = path.exists()
-
-        fieldnames = list(records[0].keys())
-
+        fieldnames = list(new_records[0].keys())
         with open(path, "a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             if not file_exists:
                 writer.writeheader()
-            writer.writerows(records)
+            writer.writerows(new_records)
 
-        self.logger.info(
-            f"💾 OfficialSiteScraper: данные сохранены в {path} ({len(records)} строк)"
-        )
+        self.logger.info(f"raw CSV += {len(new_records)} новых записей")

@@ -49,20 +49,15 @@ class BaseScraper(ABC):
         self.name = name
         self.logger = logging.getLogger(name)
 
-        #--- fix redirections bag ---
-        try:
-            self.session = requests.Session()
-            self.session.max_redirects = 30
-        except requests.TooManyRedirects:
-            self.session = requests.Session()  # сброс куки и редиректов
-            self.logger.error(f"TooManyRedirects, сессия сброшена: {url}")
-            # --- fix redirections bag ---
-
+        self.session = requests.Session()
+        self.session.max_redirects = 30
         self.session.headers.update({
             "User-Agent": SCRAPER_SETTINGS["user_agent"],
             "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         })
+
+
         self._delay = SCRAPER_SETTINGS["request_delay_sec"]
         self._timeout = SCRAPER_SETTINGS["request_timeout_sec"]
         self._max_retries = SCRAPER_SETTINGS["max_retries"]
@@ -77,7 +72,6 @@ class BaseScraper(ABC):
     def get_page(self, url: str) -> BeautifulSoup | None:
         """
         Загрузить страницу по URL и вернуть BeautifulSoup-объект.
-
         Повторяет запрос до max_retries раз при ошибке.
         Делает паузу между запросами согласно SCRAPER_SETTINGS.
 
@@ -94,7 +88,15 @@ class BaseScraper(ABC):
                 response.raise_for_status()
                 time.sleep(self._delay)
                 return BeautifulSoup(response.text, "html.parser")
-
+            except requests.TooManyRedirects:
+                self.session = requests.Session()
+                self.session.headers.update({
+                    "User-Agent": SCRAPER_SETTINGS["user_agent"],
+                    "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                })
+                self.logger.error(f"TooManyRedirects — сессия сброшена, пропускаем: {url}")
+                return None
             except requests.exceptions.HTTPError as e:
                 self.logger.warning(f"HTTP ошибка {e} — {url}")
             except requests.exceptions.ConnectionError:

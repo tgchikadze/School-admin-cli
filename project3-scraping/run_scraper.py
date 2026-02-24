@@ -12,6 +12,7 @@
 from scrapers.postupi_scraper import PostupiScraper
 from scrapers.olymp_scraper import OlympBenefitsScraper
 from scrapers.official_site_scraper import OfficialSiteScraper
+from tools.csv_cleaner import CSVCleaner
 
 
 
@@ -54,6 +55,11 @@ def main() -> None:
     total_uni = len(uni_records_postupi) + len(uni_records_official)
     total_olymp = len(olymp_records_benefits)
 
+    # Чистка после каждой сессии
+    cleaner = CSVCleaner()
+    stats = cleaner.run()
+    print(
+        f"✅ Cleaner stats: {stats}")
 
     print("🏁 Скрапинг завершён.")
     print(f"   Вузовских записей: {total_uni}")
