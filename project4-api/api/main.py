@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from api.database import engine, Base, import_partners_json
-from api.routers import universities, programs, olympiads
+from api.routers import universities, programs, olympiads, admin
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,6 +33,7 @@ app.add_middleware(
 app.include_router(universities.router, prefix="/api", tags=["Universities"])
 app.include_router(programs.router, prefix="/api", tags=["Programs"])
 app.include_router(olympiads.router, prefix="/api", tags=["Olympiads"])
+app.include_router(admin.router)
 
 
 @app.on_event("startup")
@@ -65,6 +66,11 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 def serve_index():
     return FileResponse(str(TEMPLATES_DIR / "index.html"))
 
+@app.get("/admin.html")
+def admin_page():
+    return FileResponse(BASE_DIR / TEMPLATES_DIR  / "admin.html")
+
+
 
 @app.get("/programs.html", include_in_schema=False)
 def serve_programs():
@@ -74,3 +80,7 @@ def serve_programs():
 @app.get("/olympiads.html", include_in_schema=False)
 def serve_olympiads():
     return FileResponse(str(TEMPLATES_DIR / "olympiads.html"))
+
+@app.get("/review.html", include_in_schema=False)
+def serve_review():
+    return FileResponse(str(TEMPLATES_DIR / "review.html"))

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        :root {
+            --pico-font-size: 15px;
+        }
+        nav { background: var(--pico-card-background-color); padding: 0.5rem 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+        nav ul { margin: 0; padding: 0; }
+        nav a { font-weight: 500; }
+        nav a.active { color: var(--pico-primary); font-weight: 700; }
+        .status-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;
+        }
+        .stat-box {
+            text-align: center; padding: 1.2rem;
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: var(--pico-border-radius);
+        }
+        .stat-box .number { font-size: 2.2rem; font-weight: 700; color: var(--pico-primary); }
+        .stat-box .label { font-size: 0.85rem; color: var(--pico-muted-color); margin-top: 0.3rem; }
+        .log-box {
+            background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: var(--pico-border-radius);
+            font-family: monospace; font-size: 0.85rem; max-height: 300px; overflow-y: auto; white-space: pre-wrap;
+        }
+        .log-box .ok { color: #a6e3a1; }
+        .log-box .warn { color: #f9e2af; }
+        .log-box .err { color: #f38ba8; }
+        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="/">Вузы</a></li>
+            <li><a href="/programs.html">Программы</a></li>
+            <li><a href="/olympiads.html">Олимпиады</a></li>
+            <li><a href="/review.html">📝 Ревизия</a></li>
+            <li><a href="/admin.html" class="active">⚙ Админ</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <h1>⚙ Управление базой данных</h1>
+
+        <article>
+            <header><strong>📊 Состояние БД</strong></header>
+            <div class="status-grid">
+                <div class="stat-box">
+                    <div class="number" id="cnt-uni">—</div>
+                    <div class="label">Вузов</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number" id="cnt-prog">—</div>
+                    <div class="label">Программ</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number" id="cnt-oly">—</div>
+                    <div class="label">Олимпиад</div>
+                </div>
+            </div>
+            <button class="outline" onclick="loadStatus()">🔄 Обновить статус</button>
+        </article>
+
+        <article>
+            <header><strong>🔨 Действия</strong></header>
+            <p>Пересоздание удалит все данные и загрузит заново из <code>partners.json</code>.</p>
+            <div class="actions">
+                <button onclick="rebuild()">🔨 Пересоздать БД из JSON</button>
+                <button class="secondary" onclick="clearDb()">🗑 Очистить БД</button>
+            </div>
+        </article>
+
+        <article>
+            <header><strong>📋 Лог</strong></header>
+            <div class="log-box" id="log">Готов к работе.</div>
+        </article>
+    </main>
+
+    <script>
+        const log = document.getElementById("log");
+
+        function addLog(msg, cls = "ok") {
+            const time = new Date().toLocaleTimeString();
+            log.innerHTML += `\n<span class="${cls}">[${time}] ${msg}</span>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function loadStatus() {
+            try {
+                const r = await fetch("/api/admin/status");
+                const d = await r.json();
+                document.getElementById("cnt-uni").textContent = d.universities;
+                document.getElementById("cnt-prog").textContent = d.programs;
+                document.getElementById("cnt-oly").textContent = d.olympiads;
+                addLog(`Статус: ${d.universities} вузов, ${d.programs} программ, ${d.olympiads} олимпиад`);
+            } catch (e) {
+                addLog("Ошибка загрузки статуса: " + e.message, "err");
+            }
+        }
+
+        async function rebuild() {
+            if (!confirm("Пересоздать базу данных? Все текущие данные будут удалены.")) return;
+            addLog("Пересоздание БД...", "warn");
+            try {
+                const r = await fetch("/api/admin/rebuild", { method: "POST" });
+                const d = await r.json();
+                addLog(`Готово! ${d.universities} вузов, ${d.programs} программ, ${d.olympiads} олимпиад`);
+                loadStatus();
+            } catch (e) {
+                addLog("Ошибка: " + e.message, "err");
+            }
+        }
+
+        async function clearDb() {
+            if (!confirm("Очистить ВСЮ базу данных?")) return;
+            addLog("Очистка БД...", "warn");
+            try {
+                const r = await fetch("/api/admin/clear", { method: "POST" });
+                addLog("БД очищена.", "ok");
+                loadStatus();
+            } catch (e) {
+                addLog("Ошибка: " + e.message, "err");
+            }
+        }
+
+        loadStatus();
+    </script>
+</body>
+</html>

@@ -23,18 +23,35 @@ def get_db():
         db.close()
 
 
-def import_partners_json():
-    # Импорт здесь (не наверху) чтобы избежать circular import
+def import_partners_json(force=False):
     from api.models import University, Program, Olympiad
 
+    def normalize_benefit(raw: str) -> str:
+        """Извлечь чистые типы льгот из сырого текста."""
+        raw_lower = raw.lower()
+        types = []
+        if "бви" in raw_lower or "без вступительных" in raw_lower:
+            types.append("БВИ")
+        if "100 баллов" in raw_lower or "100 за егэ" in raw_lower or "ege100" in raw_lower:
+            types.append("100 баллов")
+        if ("доп" in raw_lower and "балл" in raw_lower) or "idpoints" in raw_lower:
+            types.append("доп. баллы")
+        return "; ".join(types) if types else raw[:100]
+
+    def clean(val):
+        if val is None or str(val).strip().lower() == "nan":
+            return ""
+        return str(val).strip()
+
     db = SessionLocal()
-    if db.query(University).count() > 0:
+
+    # Если не force — пропустить если данные уже есть
+    if not force and db.query(University).count() > 0:
         db.close()
         return
 
     json_path = BASE_DIR / "data" / "partners.json"
     if not json_path.exists():
-        print(f"WARNING: {json_path} not found, DB stays empty")
         db.close()
         return
 
@@ -44,46 +61,43 @@ def import_partners_json():
     for uni_id, uni_data in data.items():
         progs = uni_data.get("programs", [])
         olyms = uni_data.get("olympiads", [])
+
         if not progs and not olyms:
             continue
 
-        first = progs[0] if progs else {}
+        first = progs[0] if progs else olyms[0]
         db.add(University(
             id=uni_id,
-            name=first.get("university_name", uni_id),
-            city=first.get("city", ""),
+            name=clean(first.get("university_name", first.get("universityname", uni_id))),
+            city=clean(first.get("city", "")),
         ))
 
         for p in progs:
             db.add(Program(
                 university_id=uni_id,
-                okso_code=p.get("okso_code", ""),
-                program_name=p.get("program_name", ""),
-                program_level=p.get("program_level", ""),
-                min_score=p.get("min_score", ""),
-                avg_score=p.get("avg_score", ""),
-                budget_places=p.get("budget_places", ""),
-                cost=p.get("cost", ""),
-                ege_subjects=p.get("ege_subjects", ""),
-                achievements=p.get("achievements", "")[:500],
-                source=p.get("source", ""),
-                page_url=p.get("page_url", ""),
+                okso_code=clean(p.get("okso_code", p.get("oksocode", ""))),
+                program_name=clean(p.get("program_name", p.get("programname", ""))),
+                program_level=clean(p.get("program_level", p.get("programlevel", ""))),
+                min_score=clean(p.get("min_score", p.get("minscore", ""))),
+                budget_places=clean(p.get("budget_places", p.get("budgetplaces", ""))),
+                cost=clean(p.get("cost", "")),
+                ege_subjects=clean(p.get("ege_subjects", p.get("egesubjects", ""))),
             ))
 
         for o in olyms:
+            raw_benefit = clean(o.get("benefit_type", o.get("benefittype", "")))
             db.add(Olympiad(
                 university_id=uni_id,
-                olympiad_name=o.get("olympiad_name", ""),
-                olympiad_level=o.get("olympiad_level", ""),
-                subject=o.get("subject", ""),
-                benefit_type=o.get("benefit_type", o.get("benefit_types", "")),
-                benefit_detail=o.get("benefit_detail", "")[:1000],
-                source_url=o.get("olympiad_url", ""),
+                olympiad_name=clean(o.get("olympiad_name", o.get("olympiadname", ""))),
+                olympiad_level=clean(o.get("olympiad_level", o.get("olympiadlevel", ""))),
+                subject=clean(o.get("subject", "")),
+                benefit_type=normalize_benefit(raw_benefit),
+                benefit_detail=clean(o.get("benefit_detail", o.get("benefitdetail", "")))[:1000],
+                source_url=clean(o.get("olympiad_url", o.get("olympiadurl", ""))),
+                reviewed=False,
             ))
 
     db.commit()
-    total_u = db.query(University).count()
-    total_p = db.query(Program).count()
-    total_o = db.query(Olympiad).count()
-    print(f"Imported: {total_u} universities, {total_p} programs, {total_o} olympiads")
+    t = db.query(University).count(), db.query(Program).count(), db.query(Olympiad).count()
+    print(f"Imported: {t[0]} universities, {t[1]} programs, {t[2]} olympiads")
     db.close()

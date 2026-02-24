@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ревизия олимпиад</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        :root { --pico-font-size: 15px; }
+        nav { background: var(--pico-card-background-color); padding: 0.5rem 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+        nav ul { margin: 0; padding: 0; }
+        nav a { font-weight: 500; }
+        nav a.active { color: var(--pico-primary); font-weight: 700; }
+
+        .filters { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+        .filters select { width: auto; margin-bottom: 0; }
+        .filters button { margin-bottom: 0; width: auto; }
+
+        .card {
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: var(--pico-border-radius);
+            padding: 1.2rem; margin-bottom: 1rem;
+        }
+        .card.reviewed { border-left: 4px solid #2a9d8f; }
+        .card.unreviewed { border-left: 4px solid #e9c46a; }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 0.8rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--pico-muted-border-color);
+        }
+        .card-header .uni { font-weight: 700; color: var(--pico-primary); font-size: 1.05rem; }
+        .id-badge { font-size: 0.75rem; background: var(--pico-muted-border-color); padding: 2px 8px; border-radius: 4px; }
+        .status-tag {
+            display: inline-block; padding: 2px 10px; border-radius: 12px;
+            font-size: 0.75rem; font-weight: 600;
+        }
+        .status-tag.ok { background: #d1e7dd; color: #0f5132; }
+        .status-tag.pending { background: #fff3cd; color: #664d03; }
+
+        .field-grid {
+            display: grid; grid-template-columns: 130px 1fr; gap: 0.4rem 0.8rem;
+            font-size: 0.9rem;
+        }
+        .field-grid label {
+            font-weight: 600; color: var(--pico-muted-color);
+            padding-top: 0.5rem; text-align: right;
+        }
+        .field-grid input, .field-grid textarea {
+            margin-bottom: 0; padding: 0.4rem 0.6rem;
+        }
+        .field-grid textarea { min-height: 50px; resize: vertical; }
+
+        .card-actions {
+            display: flex; gap: 0.5rem; margin-top: 0.8rem; justify-content: flex-end;
+        }
+        .card-actions button { width: auto; margin-bottom: 0; padding: 0.4rem 1rem; font-size: 0.85rem; }
+
+        .add-form {
+            display: none;
+            background: color-mix(in srgb, var(--pico-primary) 5%, var(--pico-card-background-color));
+            border: 1px solid color-mix(in srgb, var(--pico-primary) 30%, transparent);
+            border-radius: var(--pico-border-radius);
+            padding: 1.2rem; margin-bottom: 1rem;
+        }
+        .add-form h3 { margin-top: 0; }
+
+        .pagination { display: flex; gap: 0.4rem; justify-content: center; margin: 1.5rem 0; }
+        .pagination button { width: auto; padding: 0.4rem 0.9rem; margin-bottom: 0; }
+        .pagination button.active { background: var(--pico-primary); color: #fff; border-color: var(--pico-primary); }
+
+        .toast {
+            position: fixed; bottom: 1.5rem; right: 1.5rem;
+            background: #2a9d8f; color: #fff; padding: 0.8rem 1.5rem;
+            border-radius: var(--pico-border-radius); font-size: 0.9rem;
+            display: none; z-index: 1000; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="/">Вузы</a></li>
+            <li><a href="/programs.html">Программы</a></li>
+            <li><a href="/olympiads.html">Олимпиады</a></li>
+            <li><a href="/review.html" class="active">📝 Ревизия</a></li>
+            <li><a href="/admin.html">⚙ Админ</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <h1>📝 Ревизия олимпиад</h1>
+
+        <div class="filters">
+            <label for="filterReviewed" style="margin-bottom:0;">Показать:</label>
+            <select id="filterReviewed">
+                <option value="">Все</option>
+                <option value="false" selected>Не проверенные</option>
+                <option value="true">Проверенные</option>
+            </select>
+            <button class="outline" onclick="loadCards()">Применить</button>
+            <small id="totalCount" style="color:var(--pico-muted-color);"></small>
+            <button onclick="toggleAddForm()" style="margin-left:auto;">➕ Добавить запись</button>
+        </div>
+
+        <!-- Форма добавления -->
+        <div class="add-form" id="add-form">
+            <h3>➕ Новая запись</h3>
+            <div class="field-grid">
+                <label>Вуз (ID):</label>
+                <input id="new-university_id" placeholder="например: itmo">
+                <label>Олимпиада:</label>
+                <input id="new-olympiad_name" placeholder="Название олимпиады">
+                <label>Уровень:</label>
+                <input id="new-olympiad_level" placeholder="I, II, III">
+                <label>Предмет:</label>
+                <input id="new-subject" placeholder="химия, биология...">
+                <label>Тип льготы:</label>
+                <input id="new-benefit_type" placeholder="БВИ, 100 баллов, доп. баллы">
+                <label>Детали:</label>
+                <textarea id="new-benefit_detail" placeholder="Подробности льготы"></textarea>
+                <label>URL:</label>
+                <input id="new-source_url" placeholder="https://...">
+            </div>
+            <div class="card-actions" style="margin-top:0.8rem;">
+                <button onclick="submitNew()">💾 Создать</button>
+                <button class="secondary" onclick="toggleAddForm()">Отмена</button>
+            </div>
+        </div>
+
+        <!-- Карточки -->
+        <div id="cards"></div>
+        <div class="pagination" id="pagination"></div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let currentPage = 1;
+        const pageSize = 10;
+
+        function showToast(msg, color = "#2a9d8f") {
+            const t = document.getElementById("toast");
+            t.textContent = msg;
+            t.style.background = color;
+            t.style.display = "block";
+            setTimeout(() => t.style.display = "none", 2500);
+        }
+
+        function esc(s) {
+            if (!s) return "";
+            return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        /* ---------- Загрузка ---------- */
+
+        async function loadCards() {
+            const filter = document.getElementById("filterReviewed").value;
+            let url = `/api/olympiads?page=${currentPage}&size=${pageSize}`;
+            if (filter !== "") url += `&reviewed=${filter}`;
+
+            const r = await fetch(url);
+            const data = await r.json();
+
+            document.getElementById("totalCount").textContent = `Всего: ${data.total}`;
+            renderCards(data.items);
+            renderPagination(data.total);
+        }
+
+        function renderCards(items) {
+            const c = document.getElementById("cards");
+            if (!items.length) { c.innerHTML = "<p style='text-align:center;color:var(--pico-muted-color);'>Нет записей</p>"; return; }
+            c.innerHTML = items.map(o => `
+                <div class="card ${o.reviewed ? 'reviewed' : 'unreviewed'}" id="card-${o.id}">
+                    <div class="card-header">
+                        <span class="uni">${esc(o.university_id)}</span>
+                        <span>
+                            <span class="status-tag ${o.reviewed ? 'ok' : 'pending'}">${o.reviewed ? '✓ Проверено' : '⏳ На проверке'}</span>
+                            <span class="id-badge">ID ${o.id}</span>
+                        </span>
+                    </div>
+                    <div class="field-grid">
+                        <label>Олимпиада:</label>
+                        <input id="f-${o.id}-olympiad_name" value="${esc(o.olympiad_name)}">
+                        <label>Уровень:</label>
+                        <input id="f-${o.id}-olympiad_level" value="${esc(o.olympiad_level)}">
+                        <label>Предмет:</label>
+                        <input id="f-${o.id}-subject" value="${esc(o.subject)}">
+                        <label>Тип льготы:</label>
+                        <input id="f-${o.id}-benefit_type" value="${esc(o.benefit_type)}">
+                        <label>Детали:</label>
+                        <textarea id="f-${o.id}-benefit_detail">${esc(o.benefit_detail)}</textarea>
+                        <label>URL:</label>
+                        <input id="f-${o.id}-source_url" value="${esc(o.source_url)}">
+                    </div>
+                    <div class="card-actions">
+                        <button class="outline" onclick="saveCard(${o.id})">💾 Сохранить</button>
+                        <button onclick="approveCard(${o.id})">✓ Подтвердить</button>
+                        <button class="secondary" onclick="deleteCard(${o.id})">🗑 Удалить</button>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        /* ---------- CRUD ---------- */
+
+        function getFields(id) {
+            return {
+                olympiad_name:  document.getElementById(`f-${id}-olympiad_name`).value,
+                olympiad_level: document.getElementById(`f-${id}-olympiad_level`).value,
+                subject:        document.getElementById(`f-${id}-subject`).value,
+                benefit_type:   document.getElementById(`f-${id}-benefit_type`).value,
+                benefit_detail: document.getElementById(`f-${id}-benefit_detail`).value,
+                source_url:     document.getElementById(`f-${id}-source_url`).value,
+            };
+        }
+
+        async function saveCard(id) {
+            const r = await fetch(`/api/olympiads/${id}`, {
+                method: "PATCH", headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(getFields(id)),
+            });
+            r.ok ? showToast("💾 Сохранено!") : showToast("Ошибка сохранения", "#e76f51");
+        }
+
+        async function approveCard(id) {
+            const r = await fetch(`/api/olympiads/${id}`, {
+                method: "PATCH", headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ ...getFields(id), reviewed: true }),
+            });
+            if (r.ok) { showToast("✓ Подтверждено!"); loadCards(); }
+        }
+
+        async function deleteCard(id) {
+            if (!confirm("Удалить эту запись?")) return;
+            const r = await fetch(`/api/olympiads/${id}`, { method: "DELETE" });
+            if (r.ok) { showToast("🗑 Удалено"); document.getElementById(`card-${id}`).remove(); }
+        }
+
+        /* ---------- Добавление ---------- */
+
+        function toggleAddForm() {
+            const f = document.getElementById("add-form");
+            f.style.display = f.style.display === "none" ? "block" : "none";
+        }
+
+        async function submitNew() {
+            const body = {
+                university_id:  document.getElementById("new-university_id").value,
+                olympiad_name:  document.getElementById("new-olympiad_name").value,
+                olympiad_level: document.getElementById("new-olympiad_level").value,
+                subject:        document.getElementById("new-subject").value,
+                benefit_type:   document.getElementById("new-benefit_type").value,
+                benefit_detail: document.getElementById("new-benefit_detail").value,
+                source_url:     document.getElementById("new-source_url").value,
+            };
+            if (!body.university_id) { showToast("Укажите ID вуза!", "#e76f51"); return; }
+
+            const r = await fetch("/api/olympiads", {
+                method: "POST", headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(body),
+            });
+            if (r.ok) {
+                showToast("✓ Запись создана!");
+                toggleAddForm();
+                document.querySelectorAll('[id^="new-"]').forEach(el => el.value = "");
+                loadCards();
+            } else {
+                showToast("Ошибка: " + await r.text(), "#e76f51");
+            }
+        }
+
+        /* ---------- Пагинация ---------- */
+
+        function renderPagination(total) {
+            const pages = Math.ceil(total / pageSize);
+            const c = document.getElementById("pagination");
+            let h = "";
+            for (let i = 1; i <= pages; i++) {
+                h += `<button class="${i === currentPage ? 'active outline' : 'outline'}" onclick="currentPage=${i}; loadCards();">${i}</button>`;
+            }
+            c.innerHTML = h;
+        }
+
+        loadCards();
+    </script>
+</body>
+</html>

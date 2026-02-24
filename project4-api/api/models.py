@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from api.database import Base
 
@@ -42,3 +42,6 @@ class Olympiad(Base):
     benefit_detail = Column(String, default="")
     source_url = Column(String, default="")
     university = relationship("University", back_populates="olympiads")
+    reviewed = Column(Boolean, default=False)
+
+
