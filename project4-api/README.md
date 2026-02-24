@@ -11,8 +11,8 @@
 
 ```bash
 # Клонировать репозиторий
-git clone https://github.com/<username>/project4-web.git
-cd project4-web
+git clone https://github.com/tgchikadze/School-admin-cli/tree/features/api/project4-api
+cd project4-api
 
 # Создать виртуальное окружение
 python -m venv venv
