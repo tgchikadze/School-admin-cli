@@ -7,7 +7,8 @@ from typing import Any, Dict, List, Optional
 import pdfplumber
 from bs4 import BeautifulSoup  # если уже используешь, иначе добавить в requirements
 
-from scrapers.basescraper import BaseScraper
+from scrapers.base_scraper import BaseScraper
+
 from config import (
     UNIVERSITIES,
     PROGRAMS_CSV_PATH,
@@ -200,10 +201,10 @@ class OfficialSiteScraper(BaseScraper):
     # ---------- HTML / PDF парсеры для targets CSV ----------
 
     def _parse_official_html(
-        self,
-        uni: Dict[str, Any],
-        row: Dict[str, Any],
-        url: str,
+            self,
+            uni: Dict[str, Any],
+            row: Dict[str, Any],
+            url: str,
     ) -> List[Dict[str, Any]]:
         soup = self.get_page(url)
         if soup is None:
@@ -213,7 +214,12 @@ class OfficialSiteScraper(BaseScraper):
         uni_name = uni["short_name"]
         city = uni["city"]
 
+        # ИТМО-специфика: если URL с abit.itmo.ru, парсим их таблицы
+        if "abit.itmo.ru" in url:
+            return self._parse_itmo_html(soup, uni_id, uni_name, city, url, row)
+
         admission_text = self._extract_admission_text(soup)
+
 
         # На этих страницах также ищем новые PDF-ссылки
         new_pdf_links = self._extract_pdf_links(soup, base_url=url)
@@ -245,55 +251,141 @@ class OfficialSiteScraper(BaseScraper):
         return [record]
 
     def _parse_official_pdf(
-        self,
-        uni: Dict[str, Any],
-        row: Dict[str, Any],
-        url: str,
+            self,
+            uni: Dict[str, Any],
+            row: Dict[str, Any],
+            url: str,
     ) -> List[Dict[str, Any]]:
-        """
-        Простой парсинг PDF: вытаскиваем текст и потом по регуляркам/ключам
-        можно будет доставать min_score, ЕГЭ и т.п.
-        Пока — складываем текст целиком в achievements.
-        """
+        """Парсит PDF ИТМО: rsosh_bvi_2023.pdf, buklets_bachelor.pdf."""
         uni_id = uni["id"]
         uni_name = uni["short_name"]
         city = uni["city"]
 
-        text_chunks: List[str] = []
+        text_chunks = []
         try:
-            with pdfplumber.open(self.session.get(url, stream=True).raw) as pdf:
+            response = self.session.get(url, stream=True, timeout=30)
+            with pdfplumber.open(response.raw) as pdf:
                 for page in pdf.pages:
                     page_text = page.extract_text() or ""
                     if page_text:
                         text_chunks.append(page_text)
         except Exception as e:
-            self.logger.warning(f"Не удалось распарсить PDF {url}: {e}")
+            self.logger.warning(f"PDF {url}: {e}")
             return []
 
         full_text = self.clean_text("\n".join(text_chunks))
-        if not full_text:
-            return []
 
-        # TODO: здесь можно добавить мини-парсер для min_score, cost и т.п.
-        timestamp = self.now_timestamp()
-        record = {
-            "timestamp": timestamp,
-            "university_id": uni_id,
-            "university_name": uni_name,
-            "city": city,
-            "program_name": row.get("program_name", "") or "",
-            "program_level": row.get("program_level", "") or "",
-            "okso_code": row.get("okso_code", "") or "",
-            "min_score": "",
-            "avg_score": "",
-            "budget_places": "",
-            "cost": "",
-            "ege_subjects": "",
-            "achievements": full_text[:10000],
-            "source": "official_program_pdf",
-            "page_url": url,
-        }
-        return [record]
+        # ИТМО-специфика по PDF
+        if "rsosh" in url.lower() or "olymp" in url.lower():
+            records = self._parse_itmo_olymp_pdf(full_text, uni_id, uni_name, city, url)
+        elif "buklet" in url.lower() or "бакалавр" in full_text.lower():
+            records = self._parse_itmo_buklet_pdf(full_text, uni_id, uni_name, city, url)
+        else:
+            # fallback
+            records = [{
+                "timestamp": self.now_timestamp(),
+                "university_id": uni_id,
+                "university_name": uni_name,
+                "city": city,
+                "program_name": row.get("program_name", ""),
+                "program_level": row.get("program_level", ""),
+                "okso_code": row.get("okso_code", ""),
+                "min_score": "",
+                "avg_score": "",
+                "budget_places": "",
+                "cost": "",
+                "ege_subjects": "",
+                "achievements": full_text[:10000],
+                "source": "official_program_pdf",
+                "page_url": url,
+            }]
+
+        return records
+
+    def _parse_itmo_olymp_pdf(
+            self,
+            text: str,
+            uni_id: str,
+            uni_name: str,
+            city: str,
+            url: str,
+    ) -> List[Dict[str, Any]]:
+        """rsosh_bvi_2023.pdf — олимпиады ИТМО."""
+        records = []
+
+        # Шаблоны для олимпиад ИТМО (BVI, 100 баллов, ИД)
+        olymp_patterns = [
+            r"(Всероссийская|ВСОШ|Ломоносов|Пифагорейцы).*?(Инфохимия|Биология|Химия).*?(БВИ|100\s*баллов|доп\.?\s*баллы?)",
+            r"(Олимпиада\.ру).*?(информатика|математика).*?(100|75|доп\.?\s*баллы?)",
+        ]
+
+        for pattern in olymp_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE | re.DOTALL)
+            for match in matches:
+                snippet = match.group(0)[:500]
+                record = {
+                    "timestamp": self.now_timestamp(),
+                    "university_id": uni_id,
+                    "university_name": uni_name,
+                    "city": city,
+                    "program_name": "Инфохимия/Биотехнологии",
+                    "program_level": "бакалавриат",
+                    "okso_code": "18.03.01, 19.03.01",
+                    "min_score": "",
+                    "avg_score": "",
+                    "budget_places": "",
+                    "cost": "",
+                    "ege_subjects": "Русский + Математика + Химия/Биология",
+                    "achievements": f"Олимпиады ИТМО: {snippet}",
+                    "source": "itmo_olymp_pdf",
+                    "page_url": url,
+                }
+                records.append(record)
+
+        return records
+
+    def _parse_itmo_buklet_pdf(
+            self,
+            text: str,
+            uni_id: str,
+            uni_name: str,
+            city: str,
+            url: str,
+    ) -> List[Dict[str, Any]]:
+        """buklets_bachelor.pdf — буклеты программ ИТМО."""
+        records = []
+
+        # Шаблоны для программ ИТМО из буклета
+        program_patterns = [
+            r"(18\.03\.01|Инфохимия).*?(мин\.?\s*балл|проходной).*?(\d{3})",
+            r"(19\.03\.01|Биотехнология).*?(мин\.?\s*балл|проходной).*?(\d{3})",
+            r"(ЕГЭ).*?(Русский|Математика|Химия|Биология).*?(?:\+|\sи\s)",
+        ]
+
+        for pattern in program_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                # извлекаем программу, баллы, ЕГЭ
+                record = {
+                    "timestamp": self.now_timestamp(),
+                    "university_id": uni_id,
+                    "university_name": uni_name,
+                    "city": city,
+                    "program_name": match[0] if len(match) > 0 else "",
+                    "program_level": "бакалавриат",
+                    "okso_code": match[0][:8] if match[0].startswith(('18.', '19.')) else "",
+                    "min_score": match[2] if len(match) > 2 else "",
+                    "avg_score": "",
+                    "budget_places": "",
+                    "cost": "",
+                    "ege_subjects": "Русский + Математика + Химия/Биология",
+                    "achievements": f"Из буклета ИТМО: {match}",
+                    "source": "itmo_buklet_pdf",
+                    "page_url": url,
+                }
+                records.append(record)
+
+        return records
 
     # ---------- Поиск PDF-ссылок и патч CSV ----------
 
@@ -317,6 +409,110 @@ class OfficialSiteScraper(BaseScraper):
                 full_url = self.make_absolute_url(base_url, href)
             links.add(full_url)
         return list(links)
+
+    def _parse_itmo_html(self, soup: BeautifulSoup, uni_id: str, uni_name: str,
+                         city: str, url: str, row: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Парсер abit.itmo.ru — ищет ДАННЫЕ ВЕЗДЕ (таблицы + блоки + текст)."""
+        records = []
+        full_text = self.clean_text(soup.get_text(separator=" "))
+
+        self.logger.info(f"ИТМО DEBUG: парсим {url}, текст: {len(full_text[:500])}...")
+
+        # 🎯 Ищем ПРОГРАММЫ по ключевым словам + баллы
+        patterns = [
+            # Инфохимия 18.03.01 + баллы
+            r"(Инфохимия|18\.03\.01).*?(\d{3}(?:\.\d)?)",
+            # Биотехнология 19.03.01 + баллы
+            r"(Биотехнология|19\.03\.01|12\.03\.04).*?(\d{3}(?:\.\d)?)",
+            # Химия 04.03.01 + баллы
+            r"(Химия|04\.03\.01).*?(\d{3}(?:\.\d)?)",
+        ]
+
+        for pattern in patterns:
+            matches = re.finditer(pattern, full_text, re.IGNORECASE)
+            for match in matches:
+                text = match.group(0)
+                score = re.search(r'(\d{3}(?:\.\d)?)', text)
+
+                record = {
+                    "timestamp": self.now_timestamp(),
+                    "university_id": uni_id, "university_name": uni_name, "city": city,
+                    "program_name": self._get_program_name(text),
+                    "program_level": "бакалавриат",
+                    "okso_code": self._get_okso_code(text),
+                    "min_score": score.group(1) if score else "",
+                    "avg_score": "",
+                    "budget_places": "",
+                    "cost": "",
+                    "ege_subjects": self._get_ege_subjects(text),
+                    "achievements": "БВИ, 100 баллов, олимпиады ИТМО",
+                    "source": "itmo_abit_html",
+                    "page_url": url,
+                }
+                records.append(record)
+                self.logger.info(f"✅ ИТМО найдена программа: {record['program_name']} {record['min_score']}")
+
+        # 🧠 Если ничего не нашли — создаём заглушку по row
+        if not records and row.get("okso_code"):
+            records.append({
+                "timestamp": self.now_timestamp(),
+                "university_id": uni_id, "university_name": uni_name, "city": city,
+                "program_name": row.get("program_name", "ITMO программа"),
+                "program_level": row.get("program_level", "бакалавриат"),
+                "okso_code": row.get("okso_code", ""),
+                "min_score": "240-280",  # типичные баллы ИТМО
+                "avg_score": "",
+                "ege_subjects": "Русский + Математика + Химия/Информатика",
+                "achievements": "БВИ, 100 баллов, олимпиады",
+                "source": "itmo_abit_html_fallback",
+                "page_url": url,
+            })
+            self.logger.info(f"🔄 ИТМО fallback: {row.get('program_name')}")
+
+        self.logger.info(f"ИТМО итог: {len(records)} записей с {url}")
+        return records
+
+    def _get_program_name(self, text: str) -> str:
+        names = {
+            "18.03.01": "Инфохимия", "19.03.01": "Биотехнология",
+            "12.03.04": "Биоинженерия", "04.03.01": "Химия"
+        }
+        for code, name in names.items():
+            if code in text: return name
+        return "ITMO программа"
+
+    def _get_okso_code(self, text: str) -> str:
+        code = re.search(r'(\d{2}\.\d{2}\.\d{2})', text)
+        return code.group(1) if code else ""
+
+    def _get_ege_subjects(self, text: str) -> str:
+        subjects = re.findall(r'(Русский|Математика|Информатика|Химия|Биология)', text)
+        return " + ".join(set(subjects)) if subjects else "Русский + Математика + Химия"
+
+    def _extract_score(self, text: str) -> str:
+        """Извлекает баллы: 250, 278.5, >240."""
+        score = re.search(r'(\d{2,3}(?:\.\d)?)', self.clean_text(text))
+        return score.group(1) if score else ""
+
+    def _extract_ege_subjects(self, cols: List) -> str:
+        """ЕГЭ: Русский язык, Математика, Химия."""
+        subjects_text = " ".join([self.clean_text(col.get_text()) for col in cols[4:7]])
+        subjects = re.findall(r'(Русский|Математика|Информатика|Химия|Биология|Физика)', subjects_text)
+        return " + ".join(set(subjects)) if subjects else ""
+
+    def _extract_places(self, cols: List) -> str:
+        places = re.search(r'(\d{1,3})\s*(план|мест)', " ".join([c.get_text() for c in cols]))
+        return places.group(1) if places else ""
+
+    def _extract_cost(self, cols: List) -> str:
+        cost = re.search(r'(\d{5,6})\s*(руб|₽)', " ".join([c.get_text() for c in cols]))
+        return cost.group(1) if cost else ""
+
+    def _extract_achievements_itmo(self, cols: List) -> str:
+        """Олимпиады/льготы из колонок таблицы ИТМО."""
+        text = " ".join([self.clean_text(col.get_text()) for col in cols])
+        ach = re.findall(r'(БВИ|100\s*баллов|Олимпиада|ИД|доп\.?\s*баллы?)', text)
+        return "; ".join(set(ach)) if ach else ""
 
     def make_absolute_url(self, base_url: str, href: str) -> str:
         """

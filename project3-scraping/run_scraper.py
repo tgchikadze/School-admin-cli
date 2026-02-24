@@ -64,7 +64,7 @@ def main() -> None:
 
 
     print("🏁 Скрапинг завершён.")
-    print(f"   Вузовских записей: {len(total_uni)}")
+    print(f"   Вузовских записей: {total_uni}")
     print(f"   Олимпиадных записей: {total_olymp}")
 
 
