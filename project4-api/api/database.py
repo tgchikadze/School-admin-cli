@@ -1,10 +1,14 @@
-
+"""
+SQLite + SQLAlchemy connection, sessions, JSON import.
+"""
 import json
 from pathlib import Path
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = "sqlite:///data/school.db"
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATABASE_URL = f"sqlite:///{BASE_DIR / 'data' / 'school.db'}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -20,6 +24,7 @@ def get_db():
 
 
 def import_partners_json():
+    # Импорт здесь (не наверху) чтобы избежать circular import
     from api.models import University, Program, Olympiad
 
     db = SessionLocal()
@@ -27,7 +32,7 @@ def import_partners_json():
         db.close()
         return
 
-    json_path = Path("data/partners.json")
+    json_path = BASE_DIR / "data" / "partners.json"
     if not json_path.exists():
         print(f"WARNING: {json_path} not found, DB stays empty")
         db.close()
@@ -43,12 +48,11 @@ def import_partners_json():
             continue
 
         first = progs[0] if progs else {}
-        uni = University(
+        db.add(University(
             id=uni_id,
             name=first.get("university_name", uni_id),
             city=first.get("city", ""),
-        )
-        db.add(uni)
+        ))
 
         for p in progs:
             db.add(Program(

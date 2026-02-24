@@ -1,3 +1,7 @@
+"""
+FastAPI application entry point.
+"""
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +10,11 @@ from fastapi.responses import FileResponse
 
 from api.database import engine, Base, import_partners_json
 from api.routers import universities, programs, olympiads
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+TEMPLATES_DIR = BASE_DIR / "web" / "templates"
+STATIC_DIR = BASE_DIR / "web" / "static"
 
 app = FastAPI(
     title="School Partners API",
@@ -20,11 +29,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- API routers (register BEFORE catch-all) ---
 app.include_router(universities.router, prefix="/api", tags=["Universities"])
 app.include_router(programs.router, prefix="/api", tags=["Programs"])
 app.include_router(olympiads.router, prefix="/api", tags=["Olympiads"])
-
-app.mount("/static", StaticFiles(directory="web/static"), name="static")
 
 
 @app.on_event("startup")
@@ -48,14 +56,21 @@ def get_stats():
         db.close()
 
 
+# --- Static files ---
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+# --- HTML pages ---
 @app.get("/", include_in_schema=False)
 def serve_index():
-    return FileResponse("web/templates/index.html")
+    return FileResponse(str(TEMPLATES_DIR / "index.html"))
 
 
-@app.get("/{page}.html", include_in_schema=False)
-def serve_page(page: str):
-    path = Path(f"web/templates/{page}.html")
-    if path.exists():
-        return FileResponse(path)
-    return FileResponse("web/templates/index.html")
+@app.get("/programs.html", include_in_schema=False)
+def serve_programs():
+    return FileResponse(str(TEMPLATES_DIR / "programs.html"))
+
+
+@app.get("/olympiads.html", include_in_schema=False)
+def serve_olympiads():
+    return FileResponse(str(TEMPLATES_DIR / "olympiads.html"))
