@@ -1,9 +1,10 @@
-
 from typing import Optional
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+
 from api.database import get_db
-from api.models import Program
+from api.models import Program, University
 from api.schemas import ProgramOut
 
 router = APIRouter()
@@ -22,6 +23,7 @@ def list_programs(
     db: Session = Depends(get_db),
 ):
     q = db.query(Program)
+
     if university_id:
         q = q.filter(Program.university_id == university_id)
     if okso_code:
@@ -29,16 +31,19 @@ def list_programs(
     if search:
         q = q.filter(Program.program_name.ilike(f"%{search}%"))
     if city:
-        from api.models import University
         q = q.join(University).filter(University.city.ilike(f"%{city}%"))
     if sort_by:
         col = getattr(Program, sort_by, None)
         if col:
             q = q.order_by(col.desc() if order == "desc" else col.asc())
+
     total = q.count()
     items = q.offset((page - 1) * size).limit(size).all()
+
     return {
         "items": [ProgramOut.model_validate(p).model_dump() for p in items],
-        "total": total, "page": page, "size": size,
+        "total": total,
+        "page": page,
+        "size": size,
         "pages": (total + size - 1) // size,
     }

@@ -1,11 +1,13 @@
-"""
-SQLite + SQLAlchemy connection, sessions, JSON import.
-"""
+"""SQLite + SQLAlchemy: connection, sessions, JSON import."""
+
 import json
+import logging
 from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_URL = f"sqlite:///{BASE_DIR / 'data' / 'school.db'}"
@@ -23,7 +25,8 @@ def get_db():
         db.close()
 
 
-def import_partners_json(force=False):
+def import_partners_json(force: bool = False):
+    """Импорт данных из partners.json в БД."""
     from api.models import University, Program, Olympiad
 
     def normalize_benefit(raw: str) -> str:
@@ -38,14 +41,13 @@ def import_partners_json(force=False):
             types.append("доп. баллы")
         return "; ".join(types) if types else raw[:100]
 
-    def clean(val):
+    def clean(val) -> str:
         if val is None or str(val).strip().lower() == "nan":
             return ""
         return str(val).strip()
 
     db = SessionLocal()
 
-    # Если не force — пропустить если данные уже есть
     if not force and db.query(University).count() > 0:
         db.close()
         return
@@ -98,6 +100,11 @@ def import_partners_json(force=False):
             ))
 
     db.commit()
-    t = db.query(University).count(), db.query(Program).count(), db.query(Olympiad).count()
-    print(f"Imported: {t[0]} universities, {t[1]} programs, {t[2]} olympiads")
+
+    counts = (
+        db.query(University).count(),
+        db.query(Program).count(),
+        db.query(Olympiad).count(),
+    )
+    logger.info("Imported: %d universities, %d programs, %d olympiads", *counts)
     db.close()

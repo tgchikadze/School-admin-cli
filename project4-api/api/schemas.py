@@ -1,11 +1,11 @@
-
 from typing import List, Optional
-from pydantic import BaseModel, Field, ConfigDict
 
-
+from pydantic import BaseModel, ConfigDict
 
 
 class ProgramOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     university_id: str
     okso_code: str
@@ -15,23 +15,21 @@ class ProgramOut(BaseModel):
     budget_places: str
     cost: str
     ege_subjects: str
-    class Config:
-        from_attributes = True
-
 
 
 class OlympiadOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     university_id: str
     olympiad_name: str = ""
-    olympiad_level: str = ""       # ← было str без дефолта
+    olympiad_level: str = ""
     subject: str = ""
     benefit_type: str = ""
     benefit_detail: str = ""
     source_url: str = ""
     reviewed: bool = False
 
-    model_config = ConfigDict(from_attributes=True)
 
 class OlympiadUpdate(BaseModel):
     olympiad_name: str | None = None
@@ -42,6 +40,7 @@ class OlympiadUpdate(BaseModel):
     source_url: str | None = None
     reviewed: bool | None = None
 
+
 class OlympiadCreate(BaseModel):
     university_id: str
     olympiad_name: str = ""
@@ -50,17 +49,15 @@ class OlympiadCreate(BaseModel):
     benefit_type: str = ""
     benefit_detail: str = ""
     source_url: str = ""
-    notes: str = ""
-
 
 
 
 class UniversityOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     city: str
-    class Config:
-        from_attributes = True
 
 
 class UniversityDetailOut(UniversityOut):

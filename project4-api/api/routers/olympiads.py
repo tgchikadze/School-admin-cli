@@ -29,7 +29,7 @@ def list_olympiads(
 
 @router.patch("/olympiads/{oid}")
 def update_olympiad(oid: int, body: OlympiadUpdate, db: Session = Depends(get_db)):
-    o = db.query(Olympiad).get(oid)
+    o = db.get(Olympiad, oid)
     if not o:
         raise HTTPException(404, "Olympiad not found")
     for field, val in body.model_dump(exclude_unset=True).items():
@@ -41,7 +41,7 @@ def update_olympiad(oid: int, body: OlympiadUpdate, db: Session = Depends(get_db
 
 @router.delete("/olympiads/{oid}")
 def delete_olympiad(oid: int, db: Session = Depends(get_db)):
-    o = db.query(Olympiad).get(oid)
+    o = db.get(Olympiad, oid)
     if not o:
         raise HTTPException(404, "Olympiad not found")
     db.delete(o)
@@ -58,10 +58,10 @@ def create_olympiad(body: OlympiadCreate, db: Session = Depends(get_db)):
         benefit_type=body.benefit_type,
         benefit_detail=body.benefit_detail,
         source_url=body.source_url,
-        notes=body.notes,
         reviewed=False,
     )
     db.add(o)
     db.commit()
     db.refresh(o)
     return OlympiadOut.model_validate(o).model_dump()
+
