@@ -1,0 +1,9 @@
+
+body { background-color: #f8f9fa; }
+.card-uni { transition: transform 0.2s; }
+.card-uni:hover { transform: translateY(-4px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.filter-panel { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.badge-bvi { background-color: #198754; }
+.badge-100 { background-color: #0d6efd; }
+.badge-extra { background-color: #6c757d; }
+.pagination .page-link { cursor: pointer; }

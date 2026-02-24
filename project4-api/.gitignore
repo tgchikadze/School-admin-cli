@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.db
+.pytest_cache/
+data/school.db
+screenshots/
+.env
+venv/

@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Programs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="/">School Partners</a>
+        <div class="navbar-nav">
+            <a class="nav-link " href="/">Universities</a>
+            <a class="nav-link active" href="/programs.html">Programs</a>
+            <a class="nav-link " href="/olympiads.html">Olympiads</a>
+            <a class="nav-link" href="/docs" target="_blank">API Docs</a>
+        </div>
+        <div id="statsBar" class="ms-auto"></div>
+    </div>
+</nav>
+<div class="container">
+    <div class="filter-panel"><div class="row g-2">
+        <div class="col-md-3"><input id="filterUni" class="form-control" placeholder="University ID" oninput="loadPrograms()"></div>
+        <div class="col-md-3"><input id="filterOkso" class="form-control" placeholder="OKSO code" oninput="loadPrograms()"></div>
+        <div class="col-md-3"><input id="filterSearch" class="form-control" placeholder="Program name" oninput="loadPrograms()"></div>
+    </div></div>
+    <div class="table-responsive"><table class="table table-striped table-hover">
+        <thead class="table-dark"><tr><th>Uni</th><th>OKSO</th><th>Program</th><th>Level</th><th>Min score</th><th>Budget</th><th>Cost</th><th>EGE</th></tr></thead>
+        <tbody id="programsBody"></tbody>
+    </table></div>
+    <nav><ul id="programsPagination" class="pagination justify-content-center"></ul></nav>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js"></script>
+<script>loadPrograms(); loadStats();</script>
+</body></html>
