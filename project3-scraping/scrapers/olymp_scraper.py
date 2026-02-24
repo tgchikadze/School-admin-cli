@@ -86,6 +86,7 @@ class OlympBenefitsScraper(BaseScraper):
 
         # Сохраняем в общий CSV по олимпиадам
         self._save_csv(all_records)
+        self.save_json(all_records)
         return all_records
 
     # --------------------------
@@ -365,6 +366,59 @@ class OlympBenefitsScraper(BaseScraper):
     # --------------------------
     # Сохранение данных
     # --------------------------
+    def save_json(self, records: list[dict[str, Any]]) -> None:
+        """Сохранить олимпиады в partners.json."""
+        if not records:
+            return
+
+        path = Path(PARTNERS_JSON)
+        existing = {}
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+
+        added = 0
+        for r in records:
+            uni_id = r.get("university_id", "").strip()
+            if not uni_id:
+                continue
+
+            if uni_id not in existing:
+                existing[uni_id] = {"programs": [], "olympiads": []}
+
+            olympiads = existing[uni_id].setdefault("olympiads", [])
+
+            # Дедупликация по (olympiad_name, subject, university_id)
+            key = (
+                r.get("olympiad_name", ""),
+                r.get("subject", ""),
+                uni_id,
+            )
+            already = False
+            for o in olympiads:
+                okey = (
+                    o.get("olympiad_name", ""),
+                    o.get("subject", ""),
+                    o.get("university_id", ""),
+                )
+                if okey == key:
+                    # Дополнить пустые поля
+                    for field in ("olympiad_level", "benefit_type", "benefit_detail",
+                                  "olympiad_url", "profiles"):
+                        if not o.get(field) and r.get(field):
+                            o[field] = r[field]
+                    already = True
+                    break
+
+            if not already:
+                olympiads.append(r)
+                added += 1
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(existing, f, ensure_ascii=False, indent=2)
+
+        self.logger.info(f"partners.json: добавлено {added} олимпиад")
+
     def _save_csv(self, records: list[dict]) -> None:
         """Дописать записи в raw CSV, но с дедупликацией по timestamp+url."""
         if not records:
