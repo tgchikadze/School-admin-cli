@@ -10,7 +10,7 @@
 - OlympBenefitsScraper  — парсит льготы по olymp_all.csv (PDF + HTML)
 """
 from scrapers.postupi_scraper import PostupiScraper
-from scrapers.olymp_scraper import OlympScraper, OlympBenefitsScraper
+from scrapers.olymp_scraper import OlympBenefitsScraper
 from scrapers.official_site_scraper import OfficialSiteScraper
 
 
@@ -40,14 +40,6 @@ def main() -> None:
     olymp_records_olimpiada = []
     olymp_records_benefits = []
 
-    # Скрапер олимпиад с olimpiada.ru
-    try:
-        olymp = OlympScraper()
-        olymp_records_olimpiada = olymp.scrape()
-        print(f"✅ OlympScraper (olimpiada.ru): {len(olymp_records_olimpiada)} записей")
-    except Exception as e:
-        print(f"❌ Ошибка в OlympScraper: {e}")
-
     # Скрапер льгот по olymp_all.csv (PDF + HTML)
     try:
         benefits_scraper = OlympBenefitsScraper()
@@ -60,7 +52,7 @@ def main() -> None:
         print(f"❌ Ошибка в OlympBenefitsScraper: {e}")
 
     total_uni = len(uni_records_postupi) + len(uni_records_official)
-    total_olymp = len(olymp_records_olimpiada) + len(olymp_records_benefits)
+    total_olymp = len(olymp_records_benefits)
 
 
     print("🏁 Скрапинг завершён.")

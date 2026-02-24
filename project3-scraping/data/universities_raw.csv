@@ -1,39 +1,12 @@
 timestamp,university_id,university_name,city,program_name,program_level,okso_code,min_score,avg_score,budget_places,cost,ege_subjects,achievements,source,page_url
-2026-02-24 04:14:39,itmo,ИТМО,Санкт-Петербург,Инфохимия,бакалавриат,18.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/13071/
-2026-02-24 04:14:41,itmo,ИТМО,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programmy-obucheniya/bakalavr/?fexams%5B0%5D=12
-2026-02-24 04:14:43,itmo,ИТМО,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/specialnosti/bakalavr/ege-himiya/
-2026-02-24 04:14:45,itmo,ИТМО,Санкт-Петербург,Биотехнология,бакалавриат,19.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/biotekhnologiya/
-2026-02-24 04:14:47,itmo,ИТМО,Санкт-Петербург,Биоинженерия,бакалавриат,12.03.04,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/10952/
-2026-02-24 04:14:49,itmo,ИТМО,Санкт-Петербург,Компьютерные науки / ИВТ,бакалавриат,09.03.01,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.01/
-2026-02-24 04:14:51,itmo,ИТМО,Санкт-Петербург,Информационные системы и технологии,бакалавриат,09.03.02,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.02/
-2026-02-24 04:14:53,itmo,ИТМО,Санкт-Петербург,Прикладная информатика,бакалавриат,09.03.03,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.03/
-2026-02-24 04:14:55,itmo,ИТМО,Санкт-Петербург,Программная инженерия,бакалавриат,09.03.04,,,,,,,postupi,https://spb.postupi.online/specialност/09.03.04/
-2026-02-24 04:14:57,itmo,ИТМО,Санкт-Петербург,Прикладная математика и информатика,бакалавриат,01.03.02,,,,,,,postupi,https://spb.postupi.online/specialnost/01.03.02/
-2026-02-24 04:14:59,spbgu,СПбГУ,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/specialnost/04.03.01/varianti/
-2026-02-24 04:15:01,spbgu,СПбГУ,Санкт-Петербург,Биология,бакалавриат,06.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/specialnost/06.03.01/
-2026-02-24 04:15:03,spbgu,СПбГУ,Санкт-Петербург,Лечебное дело,специалитет,31.05.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/programma/774/
-2026-02-24 04:15:05,spbgu,СПбГУ,Санкт-Петербург,Прикладная математика и информатика,бакалавриат,01.03.02,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/programma/972/
-2026-02-24 04:15:07,spbgu,СПбГУ,Санкт-Петербург,Прикладная математика и информатика,бакалавриат,01.03.02,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/specialnost/01.03.02/
-2026-02-24 04:15:09,spbgu,СПбГУ,Санкт-Петербург,Науки о данных,бакалавриат,02.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/fakultet-matematiki-i-kompyuternyh-nauk-spbgu/variant-programmi/34772/
-2026-02-24 04:15:11,spbgu,СПбГУ,Санкт-Петербург,Искусственный интеллект и наука о данных,бакалавриат,09.03.03,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/programma/10722/
-2026-02-24 04:15:13,spbguvm,СПбГУВМ,Санкт-Петербург,Ветеринария,специалитет,36.05.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgavm/programma/1683/
-2026-02-24 04:15:15,spbguvm,СПбГУВМ,Санкт-Петербург,Ветеринария,специалитет,36.05.01,,,,,,,postupi,https://spb.postupi.online/vuz/fakultet-veterinarnoj-mediciny-spbgavm/specialnost/36.05.01/
-2026-02-24 04:15:17,spbguvm,СПбГУВМ,Санкт-Петербург,Ветеринария,специалитет,36.05.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgavm/specialnost/36.05.01/varianti/
-2026-02-24 04:15:19,spbguvm,СПбГУВМ,Санкт-Петербург,Ветеринарно-санитарная экспертиза,бакалавриат,36.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgavm/specialnosti/36.03.00/
-2026-02-24 04:32:06,itmo,ИТМО,Санкт-Петербург,Инфохимия,бакалавриат,18.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/13071/
-2026-02-24 04:32:17,itmo,ИТМО,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/specialnosti/bakalavr/ege-himiya/
-2026-02-24 04:32:26,itmo,ИТМО,Санкт-Петербург,Биоинженерия,бакалавриат,12.03.04,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/10952/
-2026-02-24 04:32:29,itmo,ИТМО,Санкт-Петербург,Компьютерные науки / ИВТ,бакалавриат,09.03.01,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.01/
-2026-02-24 04:32:32,itmo,ИТМО,Санкт-Петербург,Информационные системы и технологии,бакалавриат,09.03.02,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.02/
-2026-02-24 04:32:34,itmo,ИТМО,Санкт-Петербург,Прикладная информатика,бакалавриат,09.03.03,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.03/
-2026-02-24 04:32:43,itmo,ИТМО,Санкт-Петербург,Прикладная математика и информатика,бакалавриат,01.03.02,,,,,,,postupi,https://spb.postupi.online/specialnost/01.03.02/
-2026-02-24 04:32:46,spbgu,СПбГУ,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/specialnost/04.03.01/varianti/
-2026-02-24 04:32:48,spbgu,СПбГУ,Санкт-Петербург,Биология,бакалавриат,06.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/specialnost/06.03.01/
-2026-02-24 04:32:51,spbgu,СПбГУ,Санкт-Петербург,Лечебное дело,специалитет,31.05.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/programma/774/
-2026-02-24 04:33:00,spbgu,СПбГУ,Санкт-Петербург,Прикладная математика и информатика,бакалавриат,01.03.02,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/specialnost/01.03.02/
-2026-02-24 04:33:02,spbgu,СПбГУ,Санкт-Петербург,Науки о данных,бакалавриат,02.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/fakultet-matematiki-i-kompyuternyh-nauk-spbgu/variant-programmi/34772/
-2026-02-24 04:33:05,spbgu,СПбГУ,Санкт-Петербург,Искусственный интеллект и наука о данных,бакалавриат,09.03.03,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/programma/10722/
-2026-02-24 04:33:07,spbguvm,СПбГУВМ,Санкт-Петербург,Ветеринария,специалитет,36.05.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgavm/programma/1683/
-2026-02-24 04:33:09,spbguvm,СПбГУВМ,Санкт-Петербург,Ветеринария,специалитет,36.05.01,,,,,,,postupi,https://spb.postupi.online/vuz/fakultet-veterinarnoj-mediciny-spbgavm/specialnost/36.05.01/
-2026-02-24 04:33:12,spbguvm,СПбГУВМ,Санкт-Петербург,Ветеринария,специалитет,36.05.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgavm/specialnost/36.05.01/varianti/
-2026-02-24 04:33:14,spbguvm,СПбГУВМ,Санкт-Петербург,Ветеринарно-санитарная экспертиза,бакалавриат,36.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgavm/specialnosti/36.03.00/
+2026-02-24 10:50:22,itmo,ИТМО,Санкт-Петербург,Инфохимия,бакалавриат,18.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/13071/
+2026-02-24 10:50:24,itmo,ИТМО,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programmy-obucheniya/bakalavr/?fexams%5B0%5D=12
+2026-02-24 10:50:26,itmo,ИТМО,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/specialnosti/bakalavr/ege-himiya/
+2026-02-24 10:50:28,itmo,ИТМО,Санкт-Петербург,Биотехнология,бакалавриат,19.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/biotekhnologiya/
+2026-02-24 10:50:30,itmo,ИТМО,Санкт-Петербург,Биоинженерия,бакалавриат,12.03.04,,,,,,,postupi,https://spb.postupi.online/vuz/universitet-itmo/programma/10952/
+2026-02-24 10:50:32,itmo,ИТМО,Санкт-Петербург,Компьютерные науки / ИВТ,бакалавриат,09.03.01,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.01/
+2026-02-24 10:50:34,itmo,ИТМО,Санкт-Петербург,Информационные системы и технологии,бакалавриат,09.03.02,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.02/
+2026-02-24 10:50:37,itmo,ИТМО,Санкт-Петербург,Прикладная информатика,бакалавриат,09.03.03,,,,,,,postupi,https://spb.postupi.online/specialnost/09.03.03/
+2026-02-24 10:50:39,itmo,ИТМО,Санкт-Петербург,Программная инженерия,бакалавриат,09.03.04,,,,,,,postupi,https://spb.postupi.online/specialност/09.03.04/
+2026-02-24 10:50:41,itmo,ИТМО,Санкт-Петербург,Прикладная математика и информатика,бакалавриат,01.03.02,,,,,,,postupi,https://spb.postupi.online/specialnost/01.03.02/
+2026-02-24 10:50:43,spbgu,СПбГУ,Санкт-Петербург,Химия,бакалавриат,04.03.01,,,,,,,postupi,https://spb.postupi.online/vuz/spbgu/specialnost/04.03.01/varianti/

@@ -347,5 +347,6 @@ OLYMPIADS_CSV_PATH = "data/olymp_all.csv"              # конфиг по ол�
 RAW_UNIVERSITIES_CSV = "data/universities_raw.csv"
 RAW_OLYMPIADS_CSV = "data/olympiads_raw.csv"
 PARTNERS_JSON = "data/partners.json"
-
+PDF_BLOCKLIST = ['footer', 'personaldatapolicy', 'cookie', 'dogovor',
+                 'reglament', 'oferty', 'Kollektivnyy', 'license']
 

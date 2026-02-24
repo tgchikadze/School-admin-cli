@@ -45,9 +45,19 @@ class BaseScraper(ABC):
         Параметры:
             name: Имя скрапера для логов (например, 'PostupiScraper')
         """
+
         self.name = name
         self.logger = logging.getLogger(name)
-        self.session = requests.Session()
+
+        #--- fix redirections bag ---
+        try:
+            self.session = requests.Session()
+            self.session.max_redirects = 30
+        except requests.TooManyRedirects:
+            self.session = requests.Session()  # сброс куки и редиректов
+            self.logger.error(f"TooManyRedirects, сессия сброшена: {url}")
+            # --- fix redirections bag ---
+
         self.session.headers.update({
             "User-Agent": SCRAPER_SETTINGS["user_agent"],
             "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",

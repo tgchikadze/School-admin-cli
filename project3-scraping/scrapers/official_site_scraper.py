@@ -15,7 +15,9 @@ from config import (
     OLYMPIADS_CSV_PATH,
     PARTNERS_JSON,
     RAW_UNIVERSITIES_CSV,
+    PDF_BLOCKLIST,
 )
+
 
 
 class OfficialSiteScraper(BaseScraper):
@@ -35,6 +37,7 @@ class OfficialSiteScraper(BaseScraper):
 
     def __init__(self) -> None:
         super().__init__("OfficialSiteScraper")
+        self.visited = set()
 
     # ---------- Публичный вход ----------
 
@@ -43,7 +46,7 @@ class OfficialSiteScraper(BaseScraper):
 
         # 1) HTML/PDF по official_url активных вузов
         for uni in UNIVERSITIES:
-            if not uni.get("active", True):
+            if not uni.get("active", True) or uni in self.visited:
                 continue
             uni_id = uni["id"]
             official_url = uni.get("official_url")
@@ -56,7 +59,7 @@ class OfficialSiteScraper(BaseScraper):
         # 2) HTML/PDF по urls_for_parsers_all.csv (programs_page_url + content_type)
         url_rows = self._load_program_targets()
         for row in url_rows:
-            if not row.get("active"):
+            if not row.get("active") or row in self.visited:
                 continue
             uni_id = row["university_id"]
             uni = self._get_university_by_id(uni_id)
@@ -134,7 +137,11 @@ class OfficialSiteScraper(BaseScraper):
         admission_text = self._extract_admission_text(soup)
 
         # 2) Найти PDF-ссылки в HTML и дописать их в конфиги
-        new_pdf_links = self._extract_pdf_links(soup, base_url=url)
+        #new_pdf_links = self._extract_pdf_links(soup, base_url=url)
+
+        new_pdf_links = [l for l in self._extract_pdf_links(soup, base_url=url)
+                     if not any(block in l for block in PDF_BLOCKLIST)]
+
         if new_pdf_links:
             self._patch_programs_csv_with_pdfs(uni, new_pdf_links)
             self._patch_olymp_all_with_pdfs(uni, new_pdf_links)
