@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ревью — Биотех225</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        .btn-sm { padding:.3rem .6rem; font-size:.85rem; margin:.1rem; }
+        table { font-size:.85rem; }
+        .review-btn { cursor:pointer; font-size:1.2rem; }
+    </style>
+</head>
+<body>
+<nav class="container-fluid">
+    <ul><li><a href="/"><strong>&#128300; Биотех225</strong></a></li></ul>
+    <ul>
+        <li>{{ username }}</li>
+        <li><form method="post" action="/api/logout" style="margin:0">
+            <button type="submit" class="outline secondary btn-sm">Выйти</button>
+        </form></li>
+    </ul>
+</nav>
+<main class="container">
+    <h1>&#9989; Ревью данных</h1>
+    <p>Непроверенные записи олимпиад. Нажмите ✅ чтобы подтвердить.</p>
+    <figure><table>
+        <thead><tr><th>Вуз</th><th>Олимпиада</th><th>Предмет</th><th>Льгота</th><th>Источник</th><th></th></tr></thead>
+        <tbody id="rev-body"><tr><td colspan="6">Загрузка...</td></tr></tbody>
+    </table></figure>
+    <p id="all-done" style="display:none; color:#198754; font-weight:700">Все записи проверены! ✅</p>
+</main>
+<script>
+    async function api(u,m='GET',b=null){const o={method:m,headers:{}};if(b){o.headers['Content-Type']='application/json';o.body=JSON.stringify(b)}const r=await fetch(u,o);if(r.status===401){location.href='/login';return null}if(!r.ok){const e=await r.json().catch(()=>({}));alert(e.detail||'Error');return null}return r.json()}
+
+    async function load(){
+        const unis=await api('/api/universities')||[];
+        const umap={};unis.forEach(u=>umap[u.id]=u.name);
+        const olys=await api('/api/olympiads?reviewed=false')||[];
+        const body=document.getElementById('rev-body');
+        if(!olys.length){body.innerHTML='';document.getElementById('all-done').style.display='block';return;}
+        document.getElementById('all-done').style.display='none';
+        body.innerHTML=olys.map(o=>`<tr>
+            <td>${umap[o.university_id]||o.university_id}</td>
+            <td>${o.olympiad_name}</td><td>${o.subject||'—'}</td>
+            <td>${o.benefit_type||'—'}</td>
+            <td>${o.source_url?`<a href="${o.source_url}" target="_blank">🔗</a>`:'—'}</td>
+            <td><span class="review-btn" onclick="approve(${o.id})">✅</span></td>
+        </tr>`).join('');
+    }
+
+    async function approve(id){await api(`/api/olympiads/${id}/review`,'PATCH');load();}
+    load();
+</script>
+</body>
+</html>

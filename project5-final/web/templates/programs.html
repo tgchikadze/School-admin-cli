@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Программы — Биотех225</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        .toolbar { display:flex; gap:1rem; align-items:end; flex-wrap:wrap; margin-bottom:1rem; }
+        .toolbar > * { margin-bottom:0; }
+        .btn-sm { padding:.3rem .6rem; font-size:.85rem; margin:.1rem; }
+        table { font-size:.85rem; }
+        dialog { max-width:550px; }
+    </style>
+</head>
+<body>
+<nav class="container-fluid">
+    <ul><li><a href="/"><strong>&#128300; Биотех225</strong></a></li></ul>
+    <ul>
+        <li>{{ username }}</li>
+        <li><form method="post" action="/api/logout" style="margin:0">
+            <button type="submit" class="outline secondary btn-sm">Выйти</button>
+        </form></li>
+    </ul>
+</nav>
+<main class="container">
+    <h1>&#127891; Программы вузов</h1>
+    <div class="toolbar">
+        <select id="uni-filter" onchange="loadPrograms()"><option value="">Все вузы</option></select>
+        <input type="search" id="prog-search" placeholder="Поиск..." oninput="loadPrograms()" style="max-width:250px">
+        <button class="btn-sm" onclick="openDialog()">+ Добавить</button>
+    </div>
+    <figure><table>
+        <thead><tr><th>Вуз</th><th>Код ОКСО</th><th>Программа</th><th>Уровень</th><th>Мин. балл</th><th>Бюджет</th><th>Стоимость</th><th>ЕГЭ</th><th></th></tr></thead>
+        <tbody id="prog-body"><tr><td colspan="9">Загрузка...</td></tr></tbody>
+    </table></figure>
+</main>
+<dialog id="prog-dialog">
+    <article>
+        <header><h3 id="dialog-title">Новая программа</h3></header>
+        <label>Вуз <select id="p-uni"></select></label>
+        <label>Код ОКСО <input type="text" id="p-okso"></label>
+        <label>Название <input type="text" id="p-name" required></label>
+        <label>Уровень <input type="text" id="p-level" placeholder="Бакалавриат"></label>
+        <label>Мин. балл <input type="number" id="p-score"></label>
+        <label>Бюджет. мест <input type="number" id="p-budget"></label>
+        <label>Стоимость <input type="number" id="p-cost" step="1000"></label>
+        <label>Предметы ЕГЭ <input type="text" id="p-ege" placeholder="Мат, Физ, Рус"></label>
+        <footer>
+            <button class="secondary" onclick="document.getElementById('prog-dialog').close()">Отмена</button>
+            <button onclick="save()">Сохранить</button>
+        </footer>
+    </article>
+</dialog>
+<script>
+    let unis=[], editId=null;
+    async function api(u,m='GET',b=null){const o={method:m,headers:{}};if(b){o.headers['Content-Type']='application/json';o.body=JSON.stringify(b)}const r=await fetch(u,o);if(r.status===401){location.href='/login';return null}if(!r.ok){const e=await r.json().catch(()=>({}));alert(e.detail||'Error');return null}return r.json()}
+
+    async function loadUnis(){
+        unis = await api('/api/universities') || [];
+        const sel = document.getElementById('uni-filter');
+        const psel = document.getElementById('p-uni');
+        sel.innerHTML = '<option value="">Все вузы</option>';
+        psel.innerHTML = '';
+        unis.forEach(u => { sel.innerHTML+=`<option value="${u.id}">${u.name}</option>`; psel.innerHTML+=`<option value="${u.id}">${u.name}</option>`; });
+    }
+
+    async function loadPrograms(){
+        const uid = document.getElementById('uni-filter').value;
+        const s = document.getElementById('prog-search').value.trim();
+        let url = '/api/programs?';
+        if(uid) url+=`university_id=${uid}&`;
+        if(s) url+=`search=${encodeURIComponent(s)}&`;
+        const progs = await api(url) || [];
+        const umap={}; unis.forEach(u=>umap[u.id]=u.name);
+        const body = document.getElementById('prog-body');
+        if(!progs.length){body.innerHTML='<tr><td colspan="9">Нет программ</td></tr>';return;}
+        body.innerHTML = progs.map(p=>`<tr>
+            <td>${umap[p.university_id]||p.university_id}</td>
+            <td>${p.okso_code||'—'}</td><td>${p.program_name}</td>
+            <td>${p.program_level||'—'}</td><td>${p.min_score||'—'}</td>
+            <td>${p.budget_places||'—'}</td><td>${p.cost?p.cost.toLocaleString()+'₽':'—'}</td>
+            <td style="max-width:120px;font-size:.8rem">${p.ege_subjects||'—'}</td>
+            <td>
+                <button class="btn-sm outline" onclick='openDialog(${JSON.stringify(p)})'>✏️</button>
+                <button class="btn-sm outline secondary" onclick="del(${p.id})">🗑️</button>
+            </td>
+        </tr>`).join('');
+    }
+
+    function openDialog(p=null){
+        editId=p?p.id:null;
+        document.getElementById('dialog-title').textContent=p?'Редактировать':'Новая программа';
+        document.getElementById('p-uni').value=p?p.university_id:(unis[0]?.id||'');
+        document.getElementById('p-okso').value=p?p.okso_code||'':'';
+        document.getElementById('p-name').value=p?p.program_name:'';
+        document.getElementById('p-level').value=p?p.program_level||'':'';
+        document.getElementById('p-score').value=p?p.min_score||'':'';
+        document.getElementById('p-budget').value=p?p.budget_places||'':'';
+        document.getElementById('p-cost').value=p?p.cost||'':'';
+        document.getElementById('p-ege').value=p?p.ege_subjects||'':'';
+        document.getElementById('prog-dialog').showModal();
+    }
+
+    async function save(){
+        const b={university_id:parseInt(document.getElementById('p-uni').value),okso_code:document.getElementById('p-okso').value.trim()||null,program_name:document.getElementById('p-name').value.trim(),program_level:document.getElementById('p-level').value.trim()||null,min_score:parseInt(document.getElementById('p-score').value)||null,budget_places:parseInt(document.getElementById('p-budget').value)||null,cost:parseFloat(document.getElementById('p-cost').value)||null,ege_subjects:document.getElementById('p-ege').value.trim()||null};
+        if(!b.program_name){alert('Укажите название');return;}
+        const url=editId?`/api/programs/${editId}`:'/api/programs';
+        if(await api(url,editId?'PUT':'POST',b)){document.getElementById('prog-dialog').close();loadPrograms();}
+    }
+
+    async function del(id){if(!confirm('Удалить?'))return;await api(`/api/programs/${id}`,'DELETE');loadPrograms();}
+
+    loadUnis().then(()=>loadPrograms());
+</script>
+</body>
+</html>

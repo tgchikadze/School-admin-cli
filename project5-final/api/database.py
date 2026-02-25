@@ -1,7 +1,6 @@
 """
 database.py - SQLAlchemy engine, SessionLocal, инициализация БД.
 """
-
 import os
 
 from sqlalchemy import create_engine
@@ -19,7 +18,7 @@ DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'school.db')}"
 # ─── Engine + Session ─────────────────────────────────────────
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},  # SQLite + FastAPI
+    connect_args={"check_same_thread": False},
     echo=False,
 )
 

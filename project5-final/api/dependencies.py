@@ -25,10 +25,7 @@ def get_current_user(
     request: Request,
     db: Session = Depends(get_db),
 ) -> User:
-    """
-    Извлечь текущего пользователя из JWT-cookie.
-    Кидает 401 если токен отсутствует / невалиден / пользователь не найден.
-    """
+    """Извлечь текущего пользователя из JWT-cookie."""
     token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(
@@ -62,16 +59,7 @@ def get_current_user(
 
 # ─── Проверка ролей ───────────────────────────────────────────
 def require_role(*allowed_roles: str):
-    """
-    Фабрика зависимостей: проверяет, что роль пользователя
-    входит в список разрешённых.
-
-    Использование в роутере:
-        @router.get("/admin", dependencies=[Depends(require_role("admin"))])
-
-    Или как параметр:
-        user: User = Depends(require_role("admin", "manager"))
-    """
+    """Фабрика зависимостей: проверяет роль пользователя."""
     def role_checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role not in allowed_roles:
             raise HTTPException(
@@ -82,7 +70,7 @@ def require_role(*allowed_roles: str):
     return role_checker
 
 
-# ─── Удобные шорткаты ────────────────────────────────────────
+# ─── Шорткаты ────────────────────────────────────────────────
 require_admin = require_role("admin")
 require_manager = require_role("admin", "manager")
 require_viewer = require_role("admin", "viewer")

@@ -1,49 +1,74 @@
-from typing import Optional
+"""
+routers/programs.py - CRUD образовательных программ. Доступ: все авторизованные.
+"""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from api.database import get_db
-from api.models import Program, University
-from api.schemas import ProgramOut
+from ..dependencies import get_db, require_any
+from ..models import Program, University, User
+from ..schemas import ProgramCreate, ProgramOut
 
-router = APIRouter()
+router = APIRouter(tags=["programs"])
 
 
-@router.get("/programs")
+@router.get("/api/programs", response_model=list[ProgramOut])
 def list_programs(
-    university_id: Optional[str] = Query(None),
-    city: Optional[str] = Query(None),
-    okso_code: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
-    sort_by: Optional[str] = Query(None, enum=["program_name", "okso_code", "min_score"]),
-    order: Optional[str] = Query("asc", enum=["asc", "desc"]),
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    university_id: int | None = None,
+    search: str | None = None,
+    skip: int = 0,
+    limit: int = Query(default=100, le=500),
     db: Session = Depends(get_db),
+    user: User = Depends(require_any),
 ):
     q = db.query(Program)
-
     if university_id:
         q = q.filter(Program.university_id == university_id)
-    if okso_code:
-        q = q.filter(Program.okso_code.ilike(f"%{okso_code}%"))
     if search:
         q = q.filter(Program.program_name.ilike(f"%{search}%"))
-    if city:
-        q = q.join(University).filter(University.city.ilike(f"%{city}%"))
-    if sort_by:
-        col = getattr(Program, sort_by, None)
-        if col:
-            q = q.order_by(col.desc() if order == "desc" else col.asc())
+    return q.order_by(Program.program_name).offset(skip).limit(limit).all()
 
-    total = q.count()
-    items = q.offset((page - 1) * size).limit(size).all()
 
-    return {
-        "items": [ProgramOut.model_validate(p).model_dump() for p in items],
-        "total": total,
-        "page": page,
-        "size": size,
-        "pages": (total + size - 1) // size,
-    }
+@router.get("/api/programs/{prog_id}", response_model=ProgramOut)
+def get_program(prog_id: int, db: Session = Depends(get_db),
+                user: User = Depends(require_any)):
+    prog = db.query(Program).get(prog_id)
+    if not prog:
+        raise HTTPException(status_code=404, detail="Program not found")
+    return prog
+
+
+@router.post("/api/programs", response_model=ProgramOut, status_code=201)
+def create_program(data: ProgramCreate, db: Session = Depends(get_db),
+                   user: User = Depends(require_any)):
+    if not db.query(University).get(data.university_id):
+        raise HTTPException(status_code=404, detail="University not found")
+    prog = Program(**data.model_dump())
+    db.add(prog)
+    db.commit()
+    db.refresh(prog)
+    return prog
+
+
+@router.put("/api/programs/{prog_id}", response_model=ProgramOut)
+def update_program(prog_id: int, data: ProgramCreate,
+                   db: Session = Depends(get_db), user: User = Depends(require_any)):
+    prog = db.query(Program).get(prog_id)
+    if not prog:
+        raise HTTPException(status_code=404, detail="Program not found")
+    for key, value in data.model_dump().items():
+        setattr(prog, key, value)
+    db.commit()
+    db.refresh(prog)
+    return prog
+
+
+@router.delete("/api/programs/{prog_id}")
+def delete_program(prog_id: int, db: Session = Depends(get_db),
+                   user: User = Depends(require_any)):
+    prog = db.query(Program).get(prog_id)
+    if not prog:
+        raise HTTPException(status_code=404, detail="Program not found")
+    db.delete(prog)
+    db.commit()
+    return {"detail": "Program deleted"}

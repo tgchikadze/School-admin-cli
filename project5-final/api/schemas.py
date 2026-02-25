@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field
 #  P4: Вузы / Программы / Олимпиады
 # ═══════════════════════════════════════════════════════════════
 
-# ─── University ───────────────────────────────────────────────
 class UniversityBase(BaseModel):
     name: str
     city: str = "Санкт-Петербург"
@@ -25,7 +24,6 @@ class UniversityOut(UniversityBase):
         from_attributes = True
 
 
-# ─── Program ─────────────────────────────────────────────────
 class ProgramBase(BaseModel):
     university_id: int
     okso_code: str | None = None
@@ -45,7 +43,6 @@ class ProgramOut(ProgramBase):
         from_attributes = True
 
 
-# ─── Olympiad ────────────────────────────────────────────────
 class OlympiadBase(BaseModel):
     university_id: int
     olympiad_name: str
@@ -73,7 +70,7 @@ class UserCreate(BaseModel):
     username: str = Field(..., min_length=2, max_length=64)
     password: str = Field(..., min_length=4)
     full_name: str | None = None
-    role: str = "manager"  # admin / manager / viewer
+    role: str = "manager"
 
 class UserOut(BaseModel):
     id: int
@@ -95,28 +92,32 @@ class UserUpdate(BaseModel):
 #  P5: Школьные классы
 # ═══════════════════════════════════════════════════════════════
 
-class SubjectPrice(BaseModel):
-    """Предмет с ценой (элемент JSON-списка в SchoolClass.subjects)."""
-    name: str
-    price: float
-
 class SchoolClassCreate(BaseModel):
-    name: str = Field(..., max_length=8)          # "7", "8БТ", "10МИ"
-    profile: str | None = None                     # "БТ", "МИ"
-    subjects: list[SubjectPrice] = []
+    name: str = Field(..., max_length=8)
+    subjects: list[str] = []
+    pricing_type: str = "fixed"
+    base_price: float = 0.0
+    price_per_subject: float = 0.0
+    exam_subjects: list[str] = []
 
 class SchoolClassOut(BaseModel):
     id: int
     name: str
-    profile: str | None
-    subjects: list[SubjectPrice] = []
+    subjects: list[str]
+    pricing_type: str
+    base_price: float
+    price_per_subject: float
+    exam_subjects: list[str]
     class Config:
         from_attributes = True
 
 class SchoolClassUpdate(BaseModel):
     name: str | None = None
-    profile: str | None = None
-    subjects: list[SubjectPrice] | None = None
+    subjects: list[str] | None = None
+    pricing_type: str | None = None
+    base_price: float | None = None
+    price_per_subject: float | None = None
+    exam_subjects: list[str] | None = None
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -128,16 +129,14 @@ class StudentCreate(BaseModel):
     class_id: int
     contract_number: str | None = None
     compensation: float = 0.0
-    subjects: list[str] = []                      # ["Химия", "Биология"]
 
 class StudentOut(BaseModel):
     id: int
     full_name: str
     class_id: int
     contract_number: str | None
+    monthly_payment: float
     compensation: float
-    subjects: list[str]
-    total_cost: float
     class Config:
         from_attributes = True
 
@@ -146,31 +145,22 @@ class StudentUpdate(BaseModel):
     class_id: int | None = None
     contract_number: str | None = None
     compensation: float | None = None
-    subjects: list[str] | None = None
 
 
 # ═══════════════════════════════════════════════════════════════
 #  P5: Выбор ЕГЭ (11 класс)
 # ═══════════════════════════════════════════════════════════════
 
-class ExamChoiceCreate(BaseModel):
-    student_id: int
-    subject_name: str
-    price: float = 3000.0
-
 class ExamChoiceOut(BaseModel):
     id: int
     student_id: int
     subject_name: str
-    price: float
     class Config:
         from_attributes = True
 
 class ExamChoiceBatch(BaseModel):
-    """Пакетное назначение предметов ЕГЭ ученику."""
     student_id: int
-    subjects: list[str]                           # ["Химия", "Биология"]
-    price_per_subject: float = 3000.0
+    subjects: list[str]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -179,19 +169,16 @@ class ExamChoiceBatch(BaseModel):
 
 class ReceiptCreate(BaseModel):
     student_id: int
-    subjects: list[SubjectPrice] = []             # [{"name": "Химия", "price": 5000}]
 
 class ReceiptOut(BaseModel):
     id: int
     student_id: int
     created_by: int
     created_at: datetime | None
-    subjects: list[SubjectPrice] = []
-    total: float
+    amount: float
     pdf_path: str | None
     class Config:
         from_attributes = True
 
 class ReceiptBatch(BaseModel):
-    """Массовая генерация квитанций для списка учеников."""
     student_ids: list[int]

@@ -41,21 +41,15 @@
 
     <form id="auth-form" method="post" action="/api/login">
         <label for="username">Имя пользователя
-            <input type="text" id="username" name="username"
-                   placeholder="admin" required autocomplete="username">
+            <input type="text" id="username" name="username" placeholder="admin" required autocomplete="username">
         </label>
-
         <label for="password">Пароль
-            <input type="password" id="password" name="password"
-                   placeholder="********" required autocomplete="current-password">
+            <input type="password" id="password" name="password" placeholder="********" required autocomplete="current-password">
         </label>
-
         <div id="register-fields">
             <label for="full_name">ФИО
-                <input type="text" id="full_name" name="full_name"
-                       placeholder="Иванов Иван Иванович">
+                <input type="text" id="full_name" name="full_name" placeholder="Иванов Иван Иванович">
             </label>
-
             <label for="role">Роль
                 <select id="role" name="role">
                     <option value="manager">Завуч</option>
@@ -64,18 +58,15 @@
                 </select>
             </label>
         </div>
-
         <button type="submit" id="submit-btn">Войти</button>
     </form>
 </main>
 
 <script>
     let mode = "login";
-
     function switchTab(newMode) {
         mode = newMode;
         document.getElementById("error").style.display = "none";
-
         document.getElementById("tab-login").classList.toggle("active", mode === "login");
         document.getElementById("tab-register").classList.toggle("active", mode === "register");
         document.getElementById("register-fields").style.display = mode === "register" ? "block" : "none";
@@ -84,8 +75,7 @@
     }
 
     document.getElementById("auth-form").addEventListener("submit", async function(e) {
-        if (mode === "login") return; // обычный form submit для login
-
+        if (mode === "login") return;
         e.preventDefault();
         const errEl = document.getElementById("error");
         errEl.style.display = "none";
@@ -103,34 +93,19 @@
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(body),
             });
-
             if (!resp.ok) {
                 const data = await resp.json();
                 throw new Error(data.detail || "Registration failed");
             }
-
-            // Автоматически логинимся после регистрации
             const loginResp = await fetch("/api/login", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({username: body.username, password: body.password}),
             });
-
-            if (loginResp.redirected) {
-                window.location.href = loginResp.url;
-            } else if (loginResp.ok) {
-                window.location.href = "/";
-            } else {
-                switchTab("login");
-                errEl.textContent = "Registered! Please log in.";
-                errEl.style.display = "block";
-                errEl.style.color = "var(--pico-ins-color)";
-            }
-        } catch (err) {
-            errEl.textContent = err.message;
-            errEl.style.display = "block";
-            errEl.style.color = "var(--pico-del-color)";
-        }
+            if (loginResp.redirected) { window.location.href = loginResp.url; }
+            else if (loginResp.ok) { window.location.href = "/"; }
+            else { switchTab("login"); errEl.textContent = "Registered! Please log in."; errEl.style.display = "block"; errEl.style.color = "var(--pico-ins-color)"; }
+        } catch (err) { errEl.textContent = err.message; errEl.style.display = "block"; errEl.style.color = "var(--pico-del-color)"; }
     });
 </script>
 </body>
