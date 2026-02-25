@@ -1,1 +1,137 @@
-��
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход — Биотех225</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        main { max-width: 420px; width: 100%; padding: 2rem; }
+        h1 { text-align: center; margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; color: var(--pico-muted-color); margin-bottom: 2rem; }
+        .error-msg { color: var(--pico-del-color); text-align: center; display: none; }
+        .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; }
+        .tabs button {
+            flex: 1; padding: 0.6rem; border: 1px solid var(--pico-muted-border-color);
+            background: var(--pico-card-background-color); cursor: pointer;
+            font-weight: 600; color: var(--pico-muted-color);
+        }
+        .tabs button:first-child { border-radius: 0.375rem 0 0 0.375rem; }
+        .tabs button:last-child { border-radius: 0 0.375rem 0.375rem 0; }
+        .tabs button.active {
+            background: var(--pico-primary-background);
+            color: var(--pico-primary-inverse);
+            border-color: var(--pico-primary-background);
+        }
+        #register-fields { display: none; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>&#128300; Биотех225</h1>
+    <p class="subtitle">Административная панель школы</p>
+
+    <div class="tabs">
+        <button id="tab-login" class="active" onclick="switchTab('login')">Вход</button>
+        <button id="tab-register" onclick="switchTab('register')">Регистрация</button>
+    </div>
+
+    <p id="error" class="error-msg"></p>
+
+    <form id="auth-form" method="post" action="/api/login">
+        <label for="username">Имя пользователя
+            <input type="text" id="username" name="username"
+                   placeholder="admin" required autocomplete="username">
+        </label>
+
+        <label for="password">Пароль
+            <input type="password" id="password" name="password"
+                   placeholder="********" required autocomplete="current-password">
+        </label>
+
+        <div id="register-fields">
+            <label for="full_name">ФИО
+                <input type="text" id="full_name" name="full_name"
+                       placeholder="Иванов Иван Иванович">
+            </label>
+
+            <label for="role">Роль
+                <select id="role" name="role">
+                    <option value="manager">Завуч</option>
+                    <option value="viewer">Директор</option>
+                    <option value="admin">Техадмин</option>
+                </select>
+            </label>
+        </div>
+
+        <button type="submit" id="submit-btn">Войти</button>
+    </form>
+</main>
+
+<script>
+    let mode = "login";
+
+    function switchTab(newMode) {
+        mode = newMode;
+        document.getElementById("error").style.display = "none";
+
+        document.getElementById("tab-login").classList.toggle("active", mode === "login");
+        document.getElementById("tab-register").classList.toggle("active", mode === "register");
+        document.getElementById("register-fields").style.display = mode === "register" ? "block" : "none";
+        document.getElementById("submit-btn").textContent = mode === "login" ? "Войти" : "Зарегистрироваться";
+        document.getElementById("auth-form").action = mode === "login" ? "/api/login" : "";
+    }
+
+    document.getElementById("auth-form").addEventListener("submit", async function(e) {
+        if (mode === "login") return; // обычный form submit для login
+
+        e.preventDefault();
+        const errEl = document.getElementById("error");
+        errEl.style.display = "none";
+
+        const body = {
+            username: document.getElementById("username").value.trim(),
+            password: document.getElementById("password").value,
+            full_name: document.getElementById("full_name").value.trim(),
+            role: document.getElementById("role").value,
+        };
+
+        try {
+            const resp = await fetch("/api/register/json", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(body),
+            });
+
+            if (!resp.ok) {
+                const data = await resp.json();
+                throw new Error(data.detail || "Registration failed");
+            }
+
+            // Автоматически логинимся после регистрации
+            const loginResp = await fetch("/api/login", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({username: body.username, password: body.password}),
+            });
+
+            if (loginResp.redirected) {
+                window.location.href = loginResp.url;
+            } else if (loginResp.ok) {
+                window.location.href = "/";
+            } else {
+                switchTab("login");
+                errEl.textContent = "Registered! Please log in.";
+                errEl.style.display = "block";
+                errEl.style.color = "var(--pico-ins-color)";
+            }
+        } catch (err) {
+            errEl.textContent = err.message;
+            errEl.style.display = "block";
+            errEl.style.color = "var(--pico-del-color)";
+        }
+    });
+</script>
+</body>
+</html>
