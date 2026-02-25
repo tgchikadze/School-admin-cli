@@ -3,62 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Биотех225 — Админка</title>
+    <title>Главная — Биотех225</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <style>
-        .role-badge {
-            display: inline-block; padding: 0.2rem 0.6rem; border-radius: 1rem;
-            font-size: 0.8rem; font-weight: 600; margin-left: 0.5rem;
-        }
-        .role-admin { background: #dc3545; color: #fff; }
-        .role-manager { background: #0d6efd; color: #fff; }
-        .role-viewer { background: #198754; color: #fff; }
-        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem; }
-        .card-grid article { text-align: center; cursor: pointer; transition: transform 0.15s; }
-        .card-grid article:hover { transform: translateY(-3px); }
-        .card-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
-        .hidden { display: none !important; }
+        nav { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; margin-bottom: 1rem; border-bottom: 1px solid var(--pico-muted-border-color); }
+        nav .user-info { display: flex; align-items: center; gap: 1rem; }
+        nav .role-badge { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 1rem; background: var(--pico-primary); color: white; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+        .card { border: 1px solid var(--pico-muted-border-color); border-radius: 0.5rem; padding: 1.5rem; text-decoration: none; color: inherit; transition: box-shadow 0.2s, transform 0.2s; }
+        .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-2px); }
+        .card h3 { margin: 0 0 0.5rem 0; }
+        .card p { margin: 0; color: var(--pico-muted-color); font-size: 0.9rem; }
+        .card .icon { font-size: 2rem; margin-bottom: 0.75rem; }
     </style>
 </head>
 <body>
-<nav class="container-fluid">
-    <ul><li><strong>&#128300; Биотех225</strong></li></ul>
-    <ul>
-        <li>{{ username }}
-            <span class="role-badge role-{{ role }}">
-                {% if role == 'admin' %}Техадмин{% elif role == 'manager' %}Завуч{% else %}Директор{% endif %}
-            </span>
-        </li>
-        <li><form method="post" action="/api/logout" style="margin:0">
-            <button type="submit" class="outline secondary" style="padding:0.3rem 0.8rem; margin:0">Выйти</button>
-        </form></li>
-    </ul>
-</nav>
-<main class="container">
-    <h1>Панель управления</h1>
-    <div class="card-grid">
-        <article onclick="location.href='/students'" class="{% if role == 'viewer' %}hidden{% endif %}">
-            <div class="card-icon">&#128101;</div><h3>Ученики</h3><p>Управление учениками, классами, предметами</p>
-        </article>
-        <article onclick="location.href='/receipts'" class="{% if role == 'viewer' %}hidden{% endif %}">
-            <div class="card-icon">&#128196;</div><h3>Квитанции</h3><p>Генерация PDF-квитанций на оплату</p>
-        </article>
-        <article onclick="location.href='/programs'">
-            <div class="card-icon">&#127891;</div><h3>Программы</h3><p>Образовательные программы вузов</p>
-        </article>
-        <article onclick="location.href='/olympiads'">
-            <div class="card-icon">&#127942;</div><h3>Олимпиады</h3><p>Олимпиадные льготы при поступлении</p>
-        </article>
-        <article onclick="location.href='/review'" class="{% if role == 'viewer' %}hidden{% endif %}">
-            <div class="card-icon">&#9989;</div><h3>Ревью данных</h3><p>Проверка и подтверждение записей</p>
-        </article>
-        <article onclick="location.href='/analytics'" class="{% if role == 'manager' %}hidden{% endif %}">
-            <div class="card-icon">&#128202;</div><h3>Аналитика</h3><p>Сводный дашборд по данным школы</p>
-        </article>
-        <article onclick="location.href='/admin'" class="{% if role != 'admin' %}hidden{% endif %}">
-            <div class="card-icon">&#9881;&#65039;</div><h3>Админ-панель</h3><p>Управление БД, пользователями, системой</p>
-        </article>
-    </div>
-</main>
+    <main class="container">
+        <nav>
+            <strong>Биотех225</strong>
+            <div class="user-info">
+                <span id="userInfo"></span>
+                <span class="role-badge" id="roleBadge"></span>
+                <a href="#" onclick="logout()" role="button" class="outline secondary" style="padding:0.3rem 0.8rem; font-size:0.85rem;">Выйти</a>
+            </div>
+        </nav>
+
+        <h2>Панель управления</h2>
+        <div class="cards" id="cards"></div>
+    </main>
+
+    <script>
+        const allCards = [
+            { icon: "👨‍🎓", title: "Ученики", desc: "Классы, ученики, выбор ЕГЭ", href: "/students", roles: ["admin", "manager"] },
+            { icon: "🧾", title: "Квитанции", desc: "Генерация и история PDF-квитанций", href: "/receipts", roles: ["admin", "manager"] },
+            { icon: "🏛️", title: "Вузы и программы", desc: "Справочник вузов и образовательных программ", href: "/programs", roles: ["admin", "manager", "viewer"] },
+            { icon: "🏅", title: "Олимпиады", desc: "Олимпиадные льготы и ревью", href: "/olympiads", roles: ["admin", "manager", "viewer"] },
+            { icon: "✅", title: "Ревью олимпиад", desc: "Проверка непроверенных записей", href: "/review", roles: ["admin", "manager"] },
+            { icon: "📊", title: "Аналитика", desc: "Дашборд директора: финансы, статистика", href: "/analytics", roles: ["admin", "viewer"] },
+            { icon: "⚙️", title: "Админ-панель", desc: "Пользователи, пересборка данных, очистка", href: "/admin", roles: ["admin"] },
+        ];
+
+        async function loadUser() {
+            try {
+                const res = await fetch('/api/me');
+                if (!res.ok) { window.location.href = '/login'; return; }
+                const user = await res.json();
+                document.getElementById('userInfo').textContent = user.full_name || user.username;
+                document.getElementById('roleBadge').textContent = user.role;
+                renderCards(user.role);
+            } catch {
+                window.location.href = '/login';
+            }
+        }
+
+        function renderCards(role) {
+            const container = document.getElementById('cards');
+            const visible = allCards.filter(c => c.roles.includes(role));
+            container.innerHTML = visible.map(c => `
+                <a class="card" href="${c.href}">
+                    <div class="icon">${c.icon}</div>
+                    <h3>${c.title}</h3>
+                    <p>${c.desc}</p>
+                </a>
+            `).join('');
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+
+        loadUser();
+    </script>
 </body>
 </html>
