@@ -79,7 +79,7 @@ async def index(request: Request):
     payload = decode_access_token(token) if token else None
     role = payload.get("role", "viewer") if payload else "viewer"
     username = payload.get("sub", "") if payload else ""
-    return templates.TemplateResponse("index.html", {
+    return templates.TemplateResponse("biotech225_admin.html", {
         "request": request,
         "role": role,
         "username": username,
