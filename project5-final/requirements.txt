@@ -1,8 +1,1 @@
-fastapi
-uvicorn
-sqlalchemy==2.0.25
-pydantic
-passlib[bcrypt]
-httpx
-pytest
-greenlet==3.0.3
+ÿþ

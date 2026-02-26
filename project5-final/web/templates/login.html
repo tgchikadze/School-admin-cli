@@ -6,136 +6,107 @@
     <title>Вход — Биотех225</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <style>
-        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .auth-card { width: 100%; max-width: 420px; padding: 2rem; }
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        main { max-width: 420px; width: 100%; padding: 2rem; }
+        h1 { text-align: center; margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; color: var(--pico-muted-color); margin-bottom: 2rem; }
+        .error-msg { color: var(--pico-del-color); text-align: center; display: none; }
         .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; }
-        .tabs button { flex: 1; padding: 0.6rem; cursor: pointer; border: 1px solid var(--pico-muted-border-color); background: var(--pico-card-background-color); color: var(--pico-muted-color); }
-        .tabs button.active { background: var(--pico-primary); color: white; border-color: var(--pico-primary); }
+        .tabs button {
+            flex: 1; padding: 0.6rem; border: 1px solid var(--pico-muted-border-color);
+            background: var(--pico-card-background-color); cursor: pointer;
+            font-weight: 600; color: var(--pico-muted-color);
+        }
         .tabs button:first-child { border-radius: 0.375rem 0 0 0.375rem; }
         .tabs button:last-child { border-radius: 0 0.375rem 0.375rem 0; }
-        h2 { text-align: center; margin-bottom: 0.5rem; }
-        .subtitle { text-align: center; color: var(--pico-muted-color); margin-bottom: 1.5rem; }
-        #message { padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 1rem; display: none; text-align: center; }
-        #message.error { display: block; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-        #message.success { display: block; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .tabs button.active {
+            background: var(--pico-primary-background);
+            color: var(--pico-primary-inverse);
+            border-color: var(--pico-primary-background);
+        }
+        #register-fields { display: none; }
     </style>
 </head>
 <body>
-    <article class="auth-card">
-        <h2>Биотех225</h2>
-        <p class="subtitle">Система управления школой</p>
+<main>
+    <h1>&#128300; Биотех225</h1>
+    <p class="subtitle">Административная панель школы</p>
 
-        <div class="tabs">
-            <button class="active" onclick="switchTab('login')">Вход</button>
-            <button onclick="switchTab('register')">Регистрация</button>
+    <div class="tabs">
+        <button id="tab-login" class="active" onclick="switchTab('login')">Вход</button>
+        <button id="tab-register" onclick="switchTab('register')">Регистрация</button>
+    </div>
+
+    <p id="error" class="error-msg"></p>
+
+    <form id="auth-form" method="post" action="/api/login">
+        <label for="username">Имя пользователя
+            <input type="text" id="username" name="username" placeholder="admin" required autocomplete="username">
+        </label>
+        <label for="password">Пароль
+            <input type="password" id="password" name="password" placeholder="********" required autocomplete="current-password">
+        </label>
+        <div id="register-fields">
+            <label for="full_name">ФИО
+                <input type="text" id="full_name" name="full_name" placeholder="Иванов Иван Иванович">
+            </label>
+            <label for="role">Роль
+                <select id="role" name="role">
+                    <option value="manager">Завуч</option>
+                    <option value="viewer">Директор</option>
+                    <option value="admin">Техадмин</option>
+                </select>
+            </label>
         </div>
+        <button type="submit" id="submit-btn">Войти</button>
+    </form>
+</main>
 
-        <div id="message"></div>
+<script>
+    let mode = "login";
+    function switchTab(newMode) {
+        mode = newMode;
+        document.getElementById("error").style.display = "none";
+        document.getElementById("tab-login").classList.toggle("active", mode === "login");
+        document.getElementById("tab-register").classList.toggle("active", mode === "register");
+        document.getElementById("register-fields").style.display = mode === "register" ? "block" : "none";
+        document.getElementById("submit-btn").textContent = mode === "login" ? "Войти" : "Зарегистрироваться";
+        document.getElementById("auth-form").action = mode === "login" ? "/api/login" : "";
+    }
 
-        <!-- Форма входа -->
-        <form id="loginForm" onsubmit="handleLogin(event)">
-            <label>Логин
-                <input type="text" id="loginUsername" placeholder="Введите логин" required>
-            </label>
-            <label>Пароль
-                <input type="password" id="loginPassword" placeholder="Введите пароль" required>
-            </label>
-            <button type="submit">Войти</button>
-        </form>
+    document.getElementById("auth-form").addEventListener("submit", async function(e) {
+        if (mode === "login") return;
+        e.preventDefault();
+        const errEl = document.getElementById("error");
+        errEl.style.display = "none";
 
-        <!-- Форма регистрации -->
-        <form id="registerForm" style="display:none" onsubmit="handleRegister(event)">
-            <label>Логин
-                <input type="text" id="regUsername" placeholder="Придумайте логин" required>
-            </label>
-            <label>ФИО
-                <input type="text" id="regFullname" placeholder="Иванов Иван Иванович" required>
-            </label>
-            <label>Пароль
-                <input type="password" id="regPassword" placeholder="Придумайте пароль" required>
-            </label>
-            <small>Первый зарегистрированный пользователь получает роль <strong>admin</strong>.</small>
-            <button type="submit" style="margin-top: 1rem;">Зарегистрироваться</button>
-        </form>
-    </article>
+        const body = {
+            username: document.getElementById("username").value.trim(),
+            password: document.getElementById("password").value,
+            full_name: document.getElementById("full_name").value.trim(),
+            role: document.getElementById("role").value,
+        };
 
-    <script>
-        function switchTab(tab) {
-            const btns = document.querySelectorAll('.tabs button');
-            btns.forEach(b => b.classList.remove('active'));
-
-            if (tab === 'login') {
-                btns[0].classList.add('active');
-                document.getElementById('loginForm').style.display = '';
-                document.getElementById('registerForm').style.display = 'none';
-            } else {
-                btns[1].classList.add('active');
-                document.getElementById('loginForm').style.display = 'none';
-                document.getElementById('registerForm').style.display = '';
+        try {
+            const resp = await fetch("/api/register/json", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(body),
+            });
+            if (!resp.ok) {
+                const data = await resp.json();
+                throw new Error(data.detail || "Registration failed");
             }
-            hideMessage();
-        }
-
-        function showMessage(text, type) {
-            const el = document.getElementById('message');
-            el.textContent = text;
-            el.className = type;
-        }
-
-        function hideMessage() {
-            const el = document.getElementById('message');
-            el.className = '';
-            el.style.display = 'none';
-        }
-
-        async function handleLogin(e) {
-            e.preventDefault();
-            const username = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value;
-
-            try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-
-                if (res.ok) {
-                    showMessage('Вход выполнен! Перенаправление...', 'success');
-                    setTimeout(() => window.location.href = '/', 500);
-                } else {
-                    showMessage(data.detail || 'Ошибка входа', 'error');
-                }
-            } catch (err) {
-                showMessage('Ошибка соединения с сервером', 'error');
-            }
-        }
-
-        async function handleRegister(e) {
-            e.preventDefault();
-            const username = document.getElementById('regUsername').value.trim();
-            const full_name = document.getElementById('regFullname').value.trim();
-            const password = document.getElementById('regPassword').value;
-
-            try {
-                const res = await fetch('/api/register/json', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, full_name, password })
-                });
-                const data = await res.json();
-
-                if (res.ok) {
-                    showMessage('Регистрация успешна! Войдите с вашим логином.', 'success');
-                    setTimeout(() => switchTab('login'), 1500);
-                } else {
-                    showMessage(data.detail || 'Ошибка регистрации', 'error');
-                }
-            } catch (err) {
-                showMessage('Ошибка соединения с сервером', 'error');
-            }
-        }
-    </script>
+            const loginResp = await fetch("/api/login", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({username: body.username, password: body.password}),
+            });
+            if (loginResp.redirected) { window.location.href = loginResp.url; }
+            else if (loginResp.ok) { window.location.href = "/"; }
+            else { switchTab("login"); errEl.textContent = "Registered! Please log in."; errEl.style.display = "block"; errEl.style.color = "var(--pico-ins-color)"; }
+        } catch (err) { errEl.textContent = err.message; errEl.style.display = "block"; errEl.style.color = "var(--pico-del-color)"; }
+    });
+</script>
 </body>
 </html>
