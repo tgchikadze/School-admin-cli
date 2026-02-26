@@ -1,0 +1,75 @@
+
+[
+  {
+    "id": "001",
+    "fio": "Сидоров Петр Иванович",
+    "contract_number": "8БТ-1",
+    "class_id": "9",
+    "monthly_payment": 8000.0,
+    "compensation": "100"
+  },
+  {
+    "id": "002",
+    "fio": "Кузнецова Мария Сергеевна",
+    "contract_number": "8БТ-2",
+    "class_id": "9",
+    "monthly_payment": 8000.0,
+    "compensation": "500"
+  },
+  {
+    "id": "003",
+    "fio": "Смирнов Алексей Петрович",
+    "contract_number": "8БТ-3",
+    "class_id": "9",
+    "monthly_payment": 8000.0,
+    "compensation": ""
+  },
+  {
+    "id": "004",
+    "fio": "Новикова Елена Александровна",
+    "contract_number": "8БТ-4",
+    "class_id": "11",
+    "monthly_payment": 0.0,
+    "compensation": "1000"
+  },
+  {
+    "id": "005",
+    "fio": "adfads",
+    "contract_number": "dsaf",
+    "class_id": "9",
+    "monthly_payment": 8000.0,
+    "compensation": "0"
+  },
+  {
+    "id": "006",
+    "fio": "Иванов",
+    "contract_number": "вапв",
+    "class_id": "8",
+    "monthly_payment": 8000.0,
+    "compensation": "0"
+  },
+  {
+    "id": "007",
+    "fio": "vbxbvxcv",
+    "contract_number": "cvbcvb",
+    "class_id": "7",
+    "monthly_payment": 7000.0,
+    "compensation": "0"
+  },
+  {
+    "id": "008",
+    "fio": "Проверка ЕГЭ",
+    "contract_number": "про",
+    "class_id": "11",
+    "monthly_payment": 9000,
+    "compensation": ""
+  },
+  {
+    "id": "009",
+    "fio": "Квасов",
+    "contract_number": "впр",
+    "class_id": "11",
+    "monthly_payment": 9000,
+    "compensation": ""
+  }
+]

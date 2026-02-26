@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Биотех225 — Админ-панель</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+:root {
+    --green700:#388E3C; --blue700:#1976D2; --orange700:#F57C00;
+    --red700:#D32F2F; --grey100:#F5F5F5; --grey300:#E0E0E0;
+    --grey600:#757575; --grey700:#616161; --blue50:#E3F2FD; --green50:#E8F5E9;
+}
+* { box-sizing:border-box; }
+body { background:#FAFAFA; font-family:'Segoe UI',system-ui,sans-serif; margin:0; }
+
+/* === SIDEBAR === */
+.sidebar {
+    width:220px; min-height:100vh; background:#1a3172; color:#fff;
+    position:fixed; left:0; top:0; z-index:100; padding-top:0;
+    display:flex; flex-direction:column;
+}
+.sidebar .brand {
+    font-size:1.1rem; font-weight:700; padding:16px 16px 12px;
+    border-bottom:1px solid #333;
+}
+.sidebar nav { padding:8px 0; flex:1; }
+.sidebar a {
+    display:flex; align-items:center; gap:10px;
+    padding:9px 16px; color:#b9c6ed; text-decoration:none;
+    font-size:0.85rem; margin:2px 8px; border-radius:6px;
+    transition:all .15s;
+}
+.sidebar a:hover { background:#2a2a3e; color:#fff; }
+.sidebar a.active { background:var(--blue700); color:#fff; }
+.sidebar .material-icons { font-size:20px; }
+.sidebar .user-block {
+    padding:12px 16px; border-top:1px solid #333;
+    font-size:0.75rem; color:#888;
+}
+
+/* === MAIN === */
+.main { margin-left:220px; padding:20px 28px; min-height:100vh; }
+
+/* === PAGE ELEMENTS === */
+.page-title { font-size:1.2rem; font-weight:500; margin-bottom:6px; }
+.toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.toolbar .form-control, .toolbar .form-select { height:36px; font-size:0.82rem; }
+
+/* === ICON BUTTONS (ft.IconButton) === */
+.icon-btn {
+    background:none; border:none; cursor:pointer; padding:4px;
+    border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+}
+.icon-btn:hover { background:#eee; }
+.icon-btn .material-icons { font-size:20px; }
+
+/* === DATA TABLE (ft.DataTable) === */
+.data-table {
+    width:100%; border-collapse:separate; border-spacing:0;
+    border:1px solid var(--grey300); border-radius:8px; overflow:hidden;
+    font-size:0.82rem; background:#fff;
+}
+.data-table thead { background:var(--grey100); }
+.data-table th { font-weight:700; padding:10px 12px; text-align:left; border-bottom:1px solid var(--grey300); }
+.data-table td { padding:8px 12px; vertical-align:middle; border-bottom:1px solid #f0f0f0; }
+.data-table tbody tr:hover { background:#f5f9ff; }
+.row-actions { display:flex; gap:4px; }
+
+/* === CARDS (ft.Container border=grey300 radius=8) === */
+.student-card {
+    border:1px solid var(--grey300); border-radius:8px;
+    padding:12px 15px; background:#fff; margin-bottom:8px; font-size:0.82rem;
+}
+.student-card .meta { color:var(--grey700); font-size:0.76rem; }
+
+/* === FILTER PANEL (ft.Container bgcolor=BLUE50) === */
+.filter-panel {
+    background:var(--blue50); border-radius:8px;
+    padding:12px 16px; margin-bottom:10px;
+}
+.filter-panel .filter-title { font-size:0.85rem; font-weight:700; }
+.filter-panel .hint { font-size:0.72rem; color:var(--grey700); font-style:italic; }
+
+/* === BUTTONS === */
+.btn-green { background:var(--green700); color:#fff; border:none; font-size:0.82rem; }
+.btn-green:hover { background:#2E7D32; color:#fff; }
+.btn-blue { background:var(--blue700); color:#fff; border:none; font-size:0.82rem; }
+.btn-blue:hover { background:#1565C0; color:#fff; }
+.btn-red { background:var(--red700); color:#fff; border:none; font-size:0.82rem; }
+.btn-red:hover { background:#C62828; color:#fff; }
+
+/* === COURSES BOX (receipts_page) === */
+.courses-box {
+    border:1px solid var(--grey300); border-radius:8px;
+    padding:10px; max-height:250px; overflow-y:auto;
+}
+.course-item {
+    display:flex; align-items:center; gap:8px;
+    padding:4px 0; font-size:0.82rem;
+}
+.exam-cost-info {
+    background:var(--green50); border-radius:5px; padding:8px 10px;
+    font-size:0.78rem; color:var(--green700); font-weight:700; margin-top:6px;
+}
+
+/* === MODALS === */
+.modal-dialog { max-width:470px; }
+.modal-body .form-label { font-size:0.82rem; margin-bottom:2px; }
+.modal-body .form-control, .modal-body .form-select { font-size:0.82rem; height:36px; }
+.modal-body .price-info { font-size:0.78rem; color:var(--grey700); }
+
+/* === TOAST === */
+.toast-container { position:fixed; bottom:20px; right:20px; z-index:9999; }
+
+/* === TABS (страницы внутри одного файла) === */
+.page-section { display:none; }
+.page-section.active { display:block; }
+</style>
+</head>
+<body>
+
+<!-- =============== SIDEBAR =============== -->
+<div class="sidebar">
+    <div class="brand"> БИОТЕХ 225</div>
+    <nav>
+        <a href="#" class="active" onclick="showPage('students',this)">
+            <span class="material-icons">people</span> Ученики
+        </a>
+        <a href="#" onclick="showPage('exams',this)">
+            <span class="material-icons">school</span> Выбор ЕГЭ
+        </a>
+        <a href="#" onclick="showPage('receipts',this)">
+            <span class="material-icons">receipt_long</span> Квитанция
+        </a>
+        <a href="#" onclick="showPage('batch',this)">
+            <span class="material-icons">print</span> Пакет квитанций
+        </a>
+        <a href="#" onclick="showPage('search',this)">
+            <span class="material-icons">search</span> Поиск
+        </a>
+        <hr style="border-color:#333; margin:8px 16px;">
+        <a href="#" onclick="showPage('universities',this)">
+            <span class="material-icons">account_balance</span> Вузы
+        </a>
+    </nav>
+    <div class="user-block">
+        <span class="material-icons" style="font-size:16px; vertical-align:middle">person</span>
+        admin · Завуч
+    </div>
+</div>
+
+<!-- =============== MAIN =============== -->
+<div class="main">
+
+<!-- ══════════════════════════════════════════
+     PAGE 1: УЧЕНИКИ (students_page.py)
+     ══════════════════════════════════════════ -->
+<div id="page-students" class="page-section active">
+    <div class="page-title">👥 База учеников</div>
+    <hr style="margin:6px 0 10px">
+
+    <div class="toolbar">
+        <input type="text" class="form-control" placeholder="Поиск по ФИО..." style="max-width:300px" id="studSearch" oninput="filterStudents()">
+        <select class="form-select" style="max-width:200px" id="studClassFilter" onchange="filterStudents()">
+            <option value="">Все классы</option>
+            <option value="7">7</option><option value="8">8</option>
+            <option value="9">9</option><option value="10">10</option><option value="11">11</option>
+        </select>
+        <button class="btn btn-green btn-sm" data-bs-toggle="modal" data-bs-target="#addStudentModal">＋ Добавить</button>
+        <button class="icon-btn" title="Импорт CSV"><span class="material-icons" style="color:var(--grey700)">upload_file</span></button>
+        <button class="icon-btn" title="Экспорт CSV"><span class="material-icons" style="color:var(--grey700)">download</span></button>
+        <button class="icon-btn" title="Очистить БД"><span class="material-icons" style="color:var(--grey700)">delete_sweep</span></button>
+    </div>
+    <hr style="margin:6px 0 10px">
+
+    <div style="overflow-x:auto">
+    <table class="data-table" id="studentsTable">
+        <thead><tr>
+            <th>ID</th><th>ФИО</th><th>Договор</th><th>Класс</th><th>Действия</th>
+        </tr></thead>
+        <tbody>
+            <tr data-fio="иванов иван иванович" data-class="11">
+                <td>1</td><td>Иванов Иван Иванович</td><td>ДОГ-001</td><td>11</td>
+                <td><div class="row-actions">
+                    <button class="icon-btn" title="Инфо" data-bs-toggle="modal" data-bs-target="#infoModal"><span class="material-icons" style="color:var(--blue700)">info</span></button>
+                    <button class="icon-btn" title="Редактировать" data-bs-toggle="modal" data-bs-target="#editStudentModal"><span class="material-icons" style="color:var(--orange700)">edit</span></button>
+                    <button class="icon-btn" title="Удалить" data-bs-toggle="modal" data-bs-target="#deleteModal"><span class="material-icons" style="color:var(--red700)">delete</span></button>
+                </div></td>
+            </tr>
+            <tr data-fio="петрова мария сергеевна" data-class="11">
+                <td>2</td><td>Петрова Мария Сергеевна</td><td>ДОГ-002</td><td>11</td>
+                <td><div class="row-actions">
+                    <button class="icon-btn" title="Инфо"><span class="material-icons" style="color:var(--blue700)">info</span></button>
+                    <button class="icon-btn" title="Редактировать"><span class="material-icons" style="color:var(--orange700)">edit</span></button>
+                    <button class="icon-btn" title="Удалить"><span class="material-icons" style="color:var(--red700)">delete</span></button>
+                </div></td>
+            </tr>
+            <tr data-fio="сидоров алексей павлович" data-class="9">
+                <td>3</td><td>Сидоров Алексей Павлович</td><td>ДОГ-003</td><td>9</td>
+                <td><div class="row-actions">
+                    <button class="icon-btn" title="Инфо"><span class="material-icons" style="color:var(--blue700)">info</span></button>
+                    <button class="icon-btn" title="Редактировать"><span class="material-icons" style="color:var(--orange700)">edit</span></button>
+                    <button class="icon-btn" title="Удалить"><span class="material-icons" style="color:var(--red700)">delete</span></button>
+                </div></td>
+            </tr>
+            <tr data-fio="козлова анна дмитриевна" data-class="10">
+                <td>4</td><td>Козлова Анна Дмитриевна</td><td>ДОГ-004</td><td>10</td>
+                <td><div class="row-actions">
+                    <button class="icon-btn" title="Инфо"><span class="material-icons" style="color:var(--blue700)">info</span></button>
+                    <button class="icon-btn" title="Редактировать"><span class="material-icons" style="color:var(--orange700)">edit</span></button>
+                    <button class="icon-btn" title="Удалить"><span class="material-icons" style="color:var(--red700)">delete</span></button>
+                </div></td>
+            </tr>
+            <tr data-fio="морозов дмитрий александрович" data-class="7">
+                <td>5</td><td>Морозов Дмитрий Александрович</td><td>ДОГ-005</td><td>7</td>
+                <td><div class="row-actions">
+                    <button class="icon-btn" title="Инфо"><span class="material-icons" style="color:var(--blue700)">info</span></button>
+                    <button class="icon-btn" title="Редактировать"><span class="material-icons" style="color:var(--orange700)">edit</span></button>
+                    <button class="icon-btn" title="Удалить"><span class="material-icons" style="color:var(--red700)">delete</span></button>
+                </div></td>
+            </tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 2: ВЫБОР ЕГЭ (exam_selection_page.py)
+     ══════════════════════════════════════════ -->
+<div id="page-exams" class="page-section">
+    <div class="page-title">🎓 Выбор предметов ЕГЭ</div>
+    <hr style="margin:6px 0 10px">
+
+    <div class="toolbar mb-2">
+        <button class="btn btn-green btn-sm" data-bs-toggle="modal" data-bs-target="#addExamModal">＋ Добавить выбор</button>
+    </div>
+    <hr style="margin:6px 0 10px">
+
+    <table class="data-table">
+        <thead><tr>
+            <th>ID</th><th>Ученик</th><th>Класс</th><th>Предметов</th><th>Стоимость</th><th>Действия</th>
+        </tr></thead>
+        <tbody>
+            <tr>
+                <td>1</td><td>Иванов Иван Иванович</td><td>11</td><td>3</td><td>9 000 ₽</td>
+                <td><div class="row-actions">
+                    <button class="icon-btn" title="Инфо" data-bs-toggle="modal" data-bs-target="#examInfoModal"><span class="material-icons" style="color:var(--blue700)">info</span></button>
+                    <button class="icon-btn" title="Редактировать" data-bs-toggle="modal" data-bs-target="#addExamModal"><span class="material-icons" style="color:var(--orange700)">edit</span></button>
+                    <button class="icon-btn" title="Удалить"><span class="material-icons" style="color:var(--red700)">delete</span></button>
+                </div></td>
+            </tr>
+            <tr>
+                <td>2</td><td>Петрова Мария Сергеевна</td><td>11</td><td>4</td><td>12 000 ₽</td>
+                <td><div class="row-actions">
+                    <button class="icon-btn" title="Инфо"><span class="material-icons" style="color:var(--blue700)">info</span></button>
+                    <button class="icon-btn" title="Редактировать"><span class="material-icons" style="color:var(--orange700)">edit</span></button>
+                    <button class="icon-btn" title="Удалить"><span class="material-icons" style="color:var(--red700)">delete</span></button>
+                </div></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 3: КВИТАНЦИЯ (receipts_page.py)
+     ══════════════════════════════════════════ -->
+<div id="page-receipts" class="page-section">
+    <div class="page-title">🧾 Генерация квитанции</div>
+    <hr style="margin:6px 0 10px">
+
+    <div class="mb-3">
+        <select class="form-select" style="max-width:400px; height:36px; font-size:0.82rem" id="receiptStudentSelect" onchange="onReceiptStudentChange()">
+            <option value="">Выберите ученика...</option>
+            <option value="1">Иванов Иван Иванович</option>
+            <option value="2">Петрова Мария Сергеевна</option>
+            <option value="3">Сидоров Алексей Павлович</option>
+        </select>
+    </div>
+    <hr style="margin:6px 0 10px">
+
+    <div class="fw-bold mb-2" style="font-size:0.9rem">Данные квитанции</div>
+    <div class="d-flex flex-wrap gap-2 mb-2">
+        <div><label class="form-label" style="font-size:0.78rem">ФИО</label>
+            <input type="text" class="form-control" id="rcptFio" style="width:400px;height:36px;font-size:0.82rem"></div>
+        <div><label class="form-label" style="font-size:0.78rem">Договор №</label>
+            <input type="text" class="form-control" id="rcptContract" style="width:200px;height:36px;font-size:0.82rem"></div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mb-2">
+        <div><label class="form-label" style="font-size:0.78rem">Класс</label>
+            <input type="text" class="form-control" id="rcptClass" readonly style="width:150px;height:36px;font-size:0.82rem;background:var(--grey100)"></div>
+        <div><label class="form-label" style="font-size:0.78rem">Месяц</label>
+            <input type="text" class="form-control" value="Февраль" style="width:150px;height:36px;font-size:0.82rem"></div>
+        <div><label class="form-label" style="font-size:0.78rem">Год</label>
+            <input type="text" class="form-control" value="2026" style="width:100px;height:36px;font-size:0.82rem"></div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mb-2">
+        <div><label class="form-label" style="font-size:0.78rem">Сумма ₽</label>
+            <input type="number" class="form-control" id="rcptAmount" style="width:200px;height:36px;font-size:0.82rem"></div>
+        <div><label class="form-label" style="font-size:0.78rem">Компенсация</label>
+            <input type="text" class="form-control" id="rcptComp" style="width:200px;height:36px;font-size:0.82rem"></div>
+    </div>
+    <hr style="margin:6px 0 10px">
+
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="fw-bold" style="font-size:0.9rem">Предметы</span>
+        <button class="icon-btn" title="Добавить предмет" onclick="alert('Добавить предмет')">
+            <span class="material-icons" style="color:var(--green700);font-size:28px">add_circle</span>
+        </button>
+    </div>
+    <div class="courses-box" id="coursesBox">
+        <div style="font-size:0.78rem; color:var(--grey600); font-style:italic">Выберите ученика для загрузки предметов...</div>
+    </div>
+    <hr style="margin:10px 0">
+    <button class="btn btn-green" onclick="alert('Генерация PDF...')">📄 Сгенерировать квитанцию</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 4: ПАКЕТ КВИТАНЦИЙ (batch_receipts_page.py)
+     ══════════════════════════════════════════ -->
+<div id="page-batch" class="page-section">
+    <div class="page-title">🖨️ Массовая генерация квитанций</div>
+    <hr style="margin:6px 0 10px">
+
+    <div class="filter-panel">
+        <div class="filter-title mb-2">Параметры генерации</div>
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-2">
+            <div><label class="form-label" style="font-size:0.75rem">Месяц</label>
+                <input type="text" class="form-control" value="Февраль" style="width:200px;height:36px;font-size:0.78rem"></div>
+            <div><label class="form-label" style="font-size:0.75rem">Год</label>
+                <input type="text" class="form-control" value="2026" style="width:150px;height:36px;font-size:0.78rem"></div>
+            <div><label class="form-label" style="font-size:0.75rem">Класс</label>
+                <select class="form-select" style="width:250px;height:36px;font-size:0.78rem">
+                    <option value="">Все классы</option>
+                    <option>7</option><option>8</option><option>9</option><option>10</option><option selected>11</option>
+                </select></div>
+        </div>
+        <button class="btn btn-blue btn-sm" onclick="loadBatchDemo()">📋 Загрузить учеников</button>
+        <div class="hint mt-1">Выберите параметры, затем загрузите список учеников</div>
+    </div>
+    <hr style="margin:6px 0 10px">
+
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="batchSelectAll" onchange="toggleBatchAll()">
+            <label class="form-check-label" style="font-size:0.82rem">Выбрать всех</label>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="clearBatch()">Сбросить</button>
+        <button class="btn btn-sm btn-green" id="batchGenBtn" disabled onclick="alert('Генерация пакета PDF...')">📄 Сгенерировать</button>
+    </div>
+
+    <div id="batchContainer" style="border:1px solid var(--grey300);border-radius:8px;padding:10px;min-height:200px">
+        <div style="color:var(--grey600);font-size:0.82rem;text-align:center;padding:40px">
+            Нажмите «Загрузить учеников» для предпросмотра
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 5: ПОИСК (search_page.py)
+     ══════════════════════════════════════════ -->
+<div id="page-search" class="page-section">
+    <div class="page-title">🔍 Поиск учеников</div>
+    <hr style="margin:6px 0 10px">
+
+    <div class="filter-panel">
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-2">
+            <div><label class="form-label" style="font-size:0.75rem">ФИО</label>
+                <input type="text" class="form-control" id="srchFio" placeholder="Поиск по ФИО..." style="width:300px;height:36px;font-size:0.82rem"></div>
+            <div><label class="form-label" style="font-size:0.75rem">Класс</label>
+                <select class="form-select" id="srchClass" style="width:200px;height:36px;font-size:0.82rem">
+                    <option value="">Все классы</option>
+                    <option>7</option><option>8</option><option>9</option><option>10</option><option>11</option>
+                </select></div>
+            <div><label class="form-label" style="font-size:0.75rem">Договор №</label>
+                <input type="text" class="form-control" id="srchContract" style="width:200px;height:36px;font-size:0.82rem"></div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-blue btn-sm" onclick="demoSearch()">🔍 Найти</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="clearSearch()">Сбросить</button>
+        </div>
+    </div>
+    <hr style="margin:6px 0 10px">
+    <div id="searchResults"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 6: ВУЗЫ (placeholder)
+     ══════════════════════════════════════════ -->
+<div id="page-universities" class="page-section">
+    <div class="page-title">🏛️ Вузы и программы</div>
+    <hr style="margin:6px 0 10px">
+    <div style="color:var(--grey600); text-align:center; padding:60px">
+        <span class="material-icons" style="font-size:64px;color:#ccc">account_balance</span>
+        <div style="margin-top:10px">Раздел в разработке (P3/P4)</div>
+    </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- ═══════════════════════════════════════════
+     MODALS
+     ═══════════════════════════════════════════ -->
+
+<!-- Modal: Добавить ученика -->
+<div class="modal fade" id="addStudentModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title fw-bold">Добавить ученика</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" style="max-height:450px;overflow-y:auto">
+        <div class="mb-2"><label class="form-label">ФИО</label>
+            <input type="text" class="form-control" style="max-width:400px" placeholder="Фамилия Имя Отчество"></div>
+        <div class="mb-2"><label class="form-label">Договор №</label>
+            <input type="text" class="form-control" style="max-width:200px" placeholder="ДОГ-006"></div>
+        <div class="mb-2"><label class="form-label">Класс</label>
+            <select class="form-select" style="max-width:200px" id="addClassDd" onchange="onAddClassChange()">
+                <option value="">—</option>
+                <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+                <option value="10">10</option><option value="11" data-pricing="per_subject">11</option>
+            </select></div>
+        <div class="price-info mb-2" id="addPriceInfo"></div>
+        <div id="addExamBlock" style="display:none" class="mb-2">
+            <label class="form-label fw-bold">Предметы ЕГЭ</label>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Химия</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Биология</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Математика</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Физика</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Информатика</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Английский язык</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Русский язык</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">История</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Обществознание</label></div>
+        </div>
+        <div class="mb-2"><label class="form-label">Компенсация</label>
+            <input type="text" class="form-control" style="max-width:200px"></div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-sm btn-green" onclick="showToast('Ученик добавлен')">Сохранить</button>
+    </div>
+</div></div></div>
+
+<!-- Modal: Инфо ученика -->
+<div class="modal fade" id="infoModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title fw-bold">Иванов Иван Иванович</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" style="font-size:0.85rem">
+        <div>ID: 1</div>
+        <div>Договор: ДОГ-001</div>
+        <div>Класс: 11</div>
+        <div>Оплата: 9 000 ₽</div>
+        <div>Компенсация: —</div>
+        <hr>
+        <div class="fw-bold">Предметы:</div>
+        <div style="color:var(--grey700)">Химия, Биология, Математика</div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Закрыть</button>
+    </div>
+</div></div></div>
+
+<!-- Modal: Редактировать -->
+<div class="modal fade" id="editStudentModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title fw-bold">Редактирование</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" style="max-height:400px;overflow-y:auto">
+        <div class="mb-2"><label class="form-label">ФИО</label>
+            <input type="text" class="form-control" style="max-width:400px" value="Иванов Иван Иванович"></div>
+        <div class="mb-2"><label class="form-label">Договор №</label>
+            <input type="text" class="form-control" style="max-width:200px" value="ДОГ-001"></div>
+        <div class="mb-2"><label class="form-label">Класс</label>
+            <select class="form-select" style="max-width:200px">
+                <option>7</option><option>8</option><option>9</option><option>10</option><option selected>11</option>
+            </select></div>
+        <div class="price-info mb-2">5 000 ₽ + 3 000 ₽ за предмет</div>
+        <div class="mb-2"><label class="form-label">Компенсация</label>
+            <input type="text" class="form-control" style="max-width:200px"></div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-sm btn-green" onclick="showToast('Сохранено')">Сохранить</button>
+    </div>
+</div></div></div>
+
+<!-- Modal: Удалить -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title fw-bold">
+        <span class="material-icons text-danger align-middle">warning</span> Удалить?
+    </h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" style="font-size:0.85rem">Удалить Иванов Иван Иванович (ДОГ-001)?</div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-sm btn-red" data-bs-dismiss="modal" onclick="showToast('Ученик удалён')">Удалить</button>
+    </div>
+</div></div></div>
+
+<!-- Modal: Добавить выбор ЕГЭ -->
+<div class="modal fade" id="addExamModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title fw-bold">Добавить выбор ЕГЭ</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <div class="mb-2"><label class="form-label">Ученик (11 класс)</label>
+            <select class="form-select" style="max-width:400px">
+                <option>Иванов Иван Иванович (ID 1)</option>
+                <option>Петрова Мария Сергеевна (ID 2)</option>
+            </select></div>
+        <hr>
+        <div class="fw-bold mb-2" style="font-size:0.85rem">Предметы ЕГЭ</div>
+        <div style="max-height:300px;overflow-y:auto;border:1px solid var(--grey300);border-radius:5px;padding:10px">
+            <div class="form-check"><input class="form-check-input" type="checkbox" checked><label class="form-check-label" style="font-size:0.82rem">Химия</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" checked><label class="form-check-label" style="font-size:0.82rem">Биология</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" checked><label class="form-check-label" style="font-size:0.82rem">Математика</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Физика</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Информатика</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Английский язык</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Русский язык</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">История</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Обществознание</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">География</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox"><label class="form-check-label" style="font-size:0.82rem">Литература</label></div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn btn-sm btn-green" onclick="showToast('Выбор ЕГЭ сохранён')">Сохранить</button>
+    </div>
+</div></div></div>
+
+<!-- Modal: Инфо ЕГЭ -->
+<div class="modal fade" id="examInfoModal" tabindex="-1">
+<div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title fw-bold">Информация</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" style="font-size:0.85rem">
+        <div>ФИО: Иванов Иван Иванович</div>
+        <div>ID: 1</div>
+        <div>Класс: 11</div>
+        <hr>
+        <div class="fw-bold">Предметы (3):</div>
+        <div style="color:var(--grey700)">• Химия<br>• Биология<br>• Математика</div>
+        <hr>
+        <div style="color:var(--green700);font-weight:700">Стоимость: 3 × 3 000 = 9 000 ₽</div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Закрыть</button>
+    </div>
+</div></div></div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastBox"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* === Navigation === */
+function showPage(id, link) {
+    document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-'+id).classList.add('active');
+    document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+    if(link) link.classList.add('active');
+}
+
+/* === Toast (ft.SnackBar) === */
+function showToast(msg, color) {
+    color = color || 'success';
+    const el = document.createElement('div');
+    el.className = 'toast align-items-center text-bg-'+color+' border-0 show';
+    el.setAttribute('role','alert');
+    el.innerHTML = '<div class="d-flex"><div class="toast-body">'+msg+'</div>'+
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+    document.getElementById('toastBox').appendChild(el);
+    setTimeout(function(){ el.remove(); }, 3500);
+}
+
+/* === Students: filter (on_search + on_class_filter_change) === */
+function filterStudents() {
+    var q = document.getElementById('studSearch').value.toLowerCase();
+    var cls = document.getElementById('studClassFilter').value;
+    var rows = document.querySelectorAll('#studentsTable tbody tr');
+    rows.forEach(function(tr){
+        var matchFio = !q || tr.dataset.fio.indexOf(q) >= 0;
+        var matchCls = !cls || tr.dataset.class === cls;
+        tr.style.display = (matchFio && matchCls) ? '' : 'none';
+    });
+}
+
+/* === Add student: class change (on_class_change) === */
+function onAddClassChange() {
+    var sel = document.getElementById('addClassDd');
+    var opt = sel.options[sel.selectedIndex];
+    var block = document.getElementById('addExamBlock');
+    var info = document.getElementById('addPriceInfo');
+    if (opt.dataset.pricing === 'per_subject') {
+        block.style.display = '';
+        info.textContent = '5 000 ₽ + 3 000 ₽ за предмет';
+    } else {
+        block.style.display = 'none';
+        var prices = {'7':'8 500 ₽','8':'8 000 ₽','9':'7 000 ₽','10':'6 500 ₽'};
+        info.textContent = prices[sel.value] || '';
+    }
+}
+
+/* === Receipts: student select (on_student_selected) === */
+function onReceiptStudentChange() {
+    var id = document.getElementById('receiptStudentSelect').value;
+    var data = {
+        '1': {fio:'Иванов Иван Иванович', contract:'ДОГ-001', cls:'11', amount:9000, comp:'', courses:['Химия','Биология','Математика'], is11:true},
+        '2': {fio:'Петрова Мария Сергеевна', contract:'ДОГ-002', cls:'11', amount:12000, comp:'', courses:['Химия','Биология','Математика','Физика'], is11:true},
+        '3': {fio:'Сидоров Алексей Павлович', contract:'ДОГ-003', cls:'9', amount:7000, comp:'мат. капитал', courses:['Математика','Русский язык','Химия','Биология','Физика','Английский язык'], is11:false}
+    };
+    var s = data[id];
+    if (!s) return;
+    document.getElementById('rcptFio').value = s.fio;
+    document.getElementById('rcptContract').value = s.contract;
+    document.getElementById('rcptClass').value = s.cls;
+    document.getElementById('rcptAmount').value = s.amount;
+    document.getElementById('rcptComp').value = s.comp;
+    var box = document.getElementById('coursesBox');
+    box.innerHTML = s.courses.map(function(c){
+        var icon = s.is11 ? 'workspace_premium' : 'book';
+        var color = s.is11 ? 'var(--orange700)' : 'var(--blue700)';
+        return '<div class="course-item"><span class="material-icons" style="color:'+color+'">'+icon+'</span><span style="flex:1">'+c+'</span>'+
+            '<button class="icon-btn" title="Удалить"><span class="material-icons" style="color:var(--red700);font-size:18px">delete</span></button></div>';
+    }).join('');
+    if (s.is11) {
+        var total = s.courses.length * 3000;
+        box.innerHTML += '<div class="exam-cost-info">'+s.courses.length+' × 3 000 ₽ = '+total.toLocaleString('ru')+' ₽</div>';
+    }
+}
+
+/* === Batch: load demo (load_students) === */
+function loadBatchDemo() {
+    var students = [
+        {fio:'Иванов Иван Иванович', contract:'ДОГ-001', amount:9000, comp:'', cls:'11', subj:'Химия, Биология, Математика'},
+        {fio:'Петрова Мария Сергеевна', contract:'ДОГ-002', amount:12000, comp:'', cls:'11', subj:'Химия, Биология, Математика, Физика'}
+    ];
+    var box = document.getElementById('batchContainer');
+    box.innerHTML = students.map(function(s,i){
+        return '<div class="student-card"><div class="d-flex align-items-start gap-2">'+
+            '<input class="form-check-input batch-cb" type="checkbox">'+
+            '<div style="flex:1"><div class="d-flex flex-wrap gap-2 align-items-center">'+
+            '<input type="text" class="form-control form-control-sm" value="'+s.fio+'" style="width:250px;font-size:0.78rem">'+
+            '<input type="text" class="form-control form-control-sm" value="'+s.contract+'" style="width:120px;font-size:0.78rem">'+
+            '<input type="number" class="form-control form-control-sm" value="'+s.amount+'" style="width:100px;font-size:0.78rem">'+
+            '<input type="text" class="form-control form-control-sm" value="'+s.comp+'" style="width:150px;font-size:0.78rem" placeholder="Компенсация">'+
+            '<button class="icon-btn" title="Ред. предметы"><span class="material-icons" style="color:var(--blue700);font-size:20px">edit_note</span></button>'+
+            '</div><div class="meta mt-1">Класс: '+s.cls+'</div>'+
+            '<div style="color:var(--grey600);font-size:0.76rem">Предметы: '+s.subj+'</div></div></div></div>';
+    }).join('');
+    document.getElementById('batchGenBtn').disabled = false;
+    showToast(students.length + ' учеников загружено');
+}
+
+function toggleBatchAll() {
+    var val = document.getElementById('batchSelectAll').checked;
+    document.querySelectorAll('.batch-cb').forEach(function(cb){ cb.checked = val; });
+}
+
+function clearBatch() {
+    document.getElementById('batchContainer').innerHTML =
+        '<div style="color:var(--grey600);font-size:0.82rem;text-align:center;padding:40px">Нажмите «Загрузить учеников» для предпросмотра</div>';
+    document.getElementById('batchSelectAll').checked = false;
+    document.getElementById('batchGenBtn').disabled = true;
+}
+
+/* === Search: demo (perform_search + create_student_card) === */
+function demoSearch() {
+    var q = document.getElementById('srchFio').value.toLowerCase();
+    var all = [
+        {id:1, fio:'Иванов Иван Иванович', cls:'11', contract:'ДОГ-001', pay:9000},
+        {id:2, fio:'Петрова Мария Сергеевна', cls:'11', contract:'ДОГ-002', pay:12000},
+        {id:3, fio:'Сидоров Алексей Павлович', cls:'9', contract:'ДОГ-003', pay:7000},
+        {id:4, fio:'Козлова Анна Дмитриевна', cls:'10', contract:'ДОГ-004', pay:6500},
+        {id:5, fio:'Морозов Дмитрий Александрович', cls:'7', contract:'ДОГ-005', pay:8500}
+    ];
+    var results = all.filter(function(s){ return !q || s.fio.toLowerCase().indexOf(q) >= 0; });
+    var box = document.getElementById('searchResults');
+    if (!results.length) {
+        box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--grey600)">'+
+            '<span class="material-icons" style="font-size:64px;color:#ccc">search_off</span>'+
+            '<div style="font-size:1rem;margin-top:8px">Ничего не найдено</div></div>';
+        return;
+    }
+    box.innerHTML = '<div style="font-size:0.9rem;font-weight:700;color:var(--green700);margin-bottom:8px">Найдено: '+results.length+'</div>' +
+        results.map(function(s){
+            return '<div class="student-card"><div class="d-flex gap-3 align-items-start">'+
+                '<span class="material-icons" style="font-size:40px;color:var(--blue700)">person</span>'+
+                '<div style="flex:1"><div style="font-size:1rem;font-weight:700">'+s.fio+'</div>'+
+                '<div class="meta">Класс: '+s.cls+'</div>'+
+                '<div class="meta">Договор: '+s.contract+'</div>'+
+                '<div style="font-size:0.78rem;color:var(--green700)">Оплата: '+s.pay.toLocaleString('ru')+' ₽</div></div></div>'+
+                '<hr style="margin:8px 0"><div class="d-flex gap-2">'+
+                '<button class="btn btn-blue btn-sm">ℹ️ Подробнее</button>'+
+                '<button class="btn btn-green btn-sm">🧾 Квитанция</button></div></div>';
+        }).join('');
+}
+
+function clearSearch() {
+    document.getElementById('srchFio').value = '';
+    document.getElementById('srchClass').value = '';
+    document.getElementById('srchContract').value = '';
+    document.getElementById('searchResults').innerHTML = '';
+}
+</script>
+</body>
+</html>
