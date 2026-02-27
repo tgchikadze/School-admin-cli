@@ -75,3 +75,149 @@ def init_db():
 
 def drop_db():
     Base.metadata.drop_all(bind=engine)
+
+
+# ─── Добавить в конец database.py (перед drop_db) ───────────
+
+
+# ═══════════════════════════════════════════════════════════════
+# ЗАМЕНИ функцию import_partners_json() в database.py ЦЕЛИКОМ:
+# ═══════════════════════════════════════════════════════════════
+
+def import_partners_json(db: Session | None = None) -> dict:
+    """
+    Импортирует данные из data/partners.json в таблицы
+    universities, programs, olympiads.
+
+    Формат JSON (из P3 scraper):
+    {
+      "spbau": {
+        "programs": [{"university_name": "АУ РАН", "city": "...", "program_name": "...", ...}],
+        "olympiad_benefits": [{"olympiad_name": "...", ...}]
+      },
+      "itmo": { ... },
+      ...
+    }
+    """
+    from .models import University, Program, Olympiad
+
+    json_path = os.path.join(DATADIR, "partners.json")
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"partners.json не найден: {json_path}")
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    close_after = False
+    if db is None:
+        db = SessionLocal()
+        close_after = True
+
+    try:
+        stats = {"universities": 0, "programs": 0, "olympiads": 0}
+
+        # Формат: {uni_key: {"programs": [...], "olympiad_benefits": [...]}}
+        for uni_key, uni_data in data.items():
+            if not isinstance(uni_data, dict):
+                continue
+
+            programs_list = uni_data.get("programs", [])
+            olympiads_list = uni_data.get("olympiad_benefits", uni_data.get("olympiads", []))
+
+            # Определяем название вуза из первой программы или олимпиады
+            uni_name = None
+            uni_city = "Санкт-Петербург"
+
+            for p in programs_list:
+                name = p.get("university_name", "").strip()
+                if name:
+                    uni_name = name
+                    uni_city = p.get("city", uni_city).strip() or uni_city
+                    break
+
+            if not uni_name:
+                for o in olympiads_list:
+                    name = o.get("university_name", "").strip()
+                    if name:
+                        uni_name = name
+                        uni_city = o.get("city", uni_city).strip() or uni_city
+                        break
+
+            if not uni_name:
+                uni_name = uni_key  # fallback — используем ключ
+
+            # Создаём/находим вуз
+            uni = db.query(University).filter(University.name == uni_name).first()
+            if not uni:
+                uni = University(name=uni_name, city=uni_city)
+                db.add(uni)
+                db.flush()
+                stats["universities"] += 1
+
+            # Импорт программ
+            for p in programs_list:
+                prog_name = (p.get("program_name") or "").strip()
+                if not prog_name:
+                    continue  # пропускаем пустые
+
+                prog = Program(
+                    university_id=uni.id,
+                    okso_code=(p.get("okso_code") or "").strip(),
+                    program_name=prog_name,
+                    program_level=(p.get("program_level") or "").strip(),
+                    min_score=_safe_int(p.get("min_score")),
+                    budget_places=_safe_int(p.get("budget_places")),
+                    cost=_safe_float(p.get("cost")),
+                    ege_subjects=(p.get("ege_subjects") or "").strip(),
+                )
+                db.add(prog)
+                stats["programs"] += 1
+
+            # Импорт олимпиад
+            for o in olympiads_list:
+                oly_name = (o.get("olympiad_name") or o.get("name") or "").strip()
+                if not oly_name:
+                    continue
+
+                oly = Olympiad(
+                    university_id=uni.id,
+                    olympiad_name=oly_name,
+                    olympiad_level=_safe_int(o.get("olympiad_level") or o.get("level")),
+                    subject=(o.get("subject") or "").strip(),
+                    benefit_type=(o.get("benefit_type") or "").strip(),
+                    benefit_detail=(o.get("benefit_detail") or o.get("detail") or "").strip(),
+                    source_url=(o.get("source_url") or o.get("url") or "").strip(),
+                    reviewed=bool(o.get("reviewed", False)),
+                )
+                db.add(oly)
+                stats["olympiads"] += 1
+
+        db.commit()
+        return stats
+
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        if close_after:
+            db.close()
+
+
+def _safe_int(val) -> int | None:
+    """Безопасное преобразование в int (пустые строки → None)."""
+    if val is None or val == "":
+        return None
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def _safe_float(val) -> float | None:
+    """Безопасное преобразование в float (пустые строки → None)."""
+    if val is None or val == "":
+        return None
+    try:
+        return float(str(val).replace(" ", "").replace(",", "."))
+    except (ValueError, TypeError):
+        return None

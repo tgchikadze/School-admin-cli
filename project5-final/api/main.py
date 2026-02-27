@@ -17,8 +17,7 @@ from .auth import decode_access_token
 from .routers import auth as auth_router
 from .routers import admin as admin_router
 from .routers import universities as universities_router
-from .routers import programs as programs_router
-from .routers import olympiads as olympiads_router
+
 from .routers import students as students_router
 from .routers import receipts as receipts_router
 from .routers import analytics as analytics_router
@@ -66,8 +65,7 @@ async def auth_middleware(request: Request, call_next):
 app.include_router(auth_router.router)
 app.include_router(admin_router.router)
 app.include_router(universities_router.router)
-app.include_router(programs_router.router)
-app.include_router(olympiads_router.router)
+
 app.include_router(students_router.router)
 app.include_router(receipts_router.router)
 app.include_router(analytics_router.router)

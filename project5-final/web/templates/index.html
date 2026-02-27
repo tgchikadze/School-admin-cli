@@ -330,13 +330,88 @@ body { background:#FAFAFA; font-family:'Segoe UI',system-ui,sans-serif; margin:0
 <!-- ══════════════════════════════════════════
      PAGE 6: ВУЗЫ (placeholder)
      ══════════════════════════════════════════ -->
+
+<!-- ======== PAGE 6: ВУЗЫ / ПРОГРАММЫ / ОЛИМПИАДЫ ======== -->
 <div id="page-universities" class="page-section">
-    <div class="page-title">🏛️ Вузы и программы</div>
-    <hr style="margin:6px 0 10px">
-    <div style="color:var(--grey600); text-align:center; padding:60px">
-        <span class="material-icons" style="font-size:64px;color:#ccc">account_balance</span>
-        <div style="margin-top:10px">Раздел в разработке (P3/P4)</div>
+  <div class="page-title">Вузы-партнёры / Программы / Олимпиады</div>
+  <hr style="margin:6px 0 10px">
+
+  <!-- Toolbar -->
+  <div class="toolbar mb-2">
+    <input type="text" class="form-control" id="uniSearch" placeholder="🔍 Поиск по названию..."
+           style="max-width:300px;height:36px;font-size:0.82rem" oninput="filterUniversities()">
+    <select class="form-select" id="uniCityFilter" style="max-width:200px;height:36px;font-size:0.82rem" onchange="filterUniversities()">
+      <option value="">Все города</option>
+    </select>
+    <button class="btn btn-green btn-sm" onclick="importPartnersJSON()">
+      <span class="material-icons" style="font-size:16px;vertical-align:middle">cloud_download</span> Импорт partners.json
+    </button>
+    <button class="btn btn-blue btn-sm" onclick="loadUniversities()">
+      <span class="material-icons" style="font-size:16px;vertical-align:middle">refresh</span> Обновить
+    </button>
+  </div>
+
+  <!-- Stats bar -->
+  <div id="uniStatsBar" style="font-size:0.78rem;color:var(--grey600);margin-bottom:8px"></div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-3" style="font-size:0.82rem">
+    <li class="nav-item">
+      <a class="nav-link active" href="#" onclick="showUniTab('unis',this);return false">Вузы</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="#" onclick="showUniTab('progs',this);return false">Программы</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="#" onclick="showUniTab('olys',this);return false">Олимпиады</a>
+    </li>
+  </ul>
+
+  <!-- Tab: Вузы -->
+  <div id="uniTab-unis" class="uni-tab-content">
+    <div id="uniListContainer"></div>
+  </div>
+
+  <!-- Tab: Программы -->
+  <div id="uniTab-progs" class="uni-tab-content" style="display:none">
+    <div class="d-flex flex-wrap gap-2 mb-2">
+      <select class="form-select" id="progUniFilter" style="max-width:300px;height:36px;font-size:0.82rem"
+              onchange="loadPrograms()">
+        <option value="">Все вузы</option>
+      </select>
+      <input type="text" class="form-control" id="progSearch" placeholder="🔍 Поиск программы..."
+             style="max-width:250px;height:36px;font-size:0.82rem" oninput="loadPrograms()">
+      <select class="form-select" id="progLevelFilter" style="max-width:180px;height:36px;font-size:0.82rem"
+              onchange="loadPrograms()">
+        <option value="">Все уровни</option>
+        <option>Бакалавриат</option>
+        <option>Специалитет</option>
+        <option>Магистратура</option>
+      </select>
     </div>
+    <div id="progListContainer"></div>
+  </div>
+
+  <!-- Tab: Олимпиады -->
+  <div id="uniTab-olys" class="uni-tab-content" style="display:none">
+    <div class="d-flex flex-wrap gap-2 mb-2">
+      <select class="form-select" id="olyUniFilter" style="max-width:300px;height:36px;font-size:0.82rem"
+              onchange="loadOlympiads()">
+        <option value="">Все вузы</option>
+      </select>
+      <input type="text" class="form-control" id="olySearch" placeholder="🔍 Поиск олимпиады..."
+             style="max-width:250px;height:36px;font-size:0.82rem" oninput="loadOlympiads()">
+      <select class="form-select" id="olyReviewFilter" style="max-width:180px;height:36px;font-size:0.82rem"
+              onchange="loadOlympiads()">
+        <option value="">Все</option>
+        <option value="true">✅ Проверенные</option>
+        <option value="false">⏳ Не проверенные</option>
+      </select>
+    </div>
+    <div id="olyListContainer"></div>
+  </div>
+</div>
+
 </div>
 
 </div><!-- /main -->
@@ -458,6 +533,7 @@ function showPage(id,link){
   if(id==='exams') loadExamsPage();
   if(id==='receipts') populateReceiptDropdown();
   if(id==='batch') populateAllClassDropdowns();
+  if (id === 'universities') loadUniversities();
 }
 
 function showToast(msg,color){
@@ -923,6 +999,244 @@ function clearSearch(){
   document.getElementById('srchContract').value='';
   document.getElementById('searchResults').innerHTML='';
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+//  PAGE 6: ВУЗЫ / ПРОГРАММЫ / ОЛИМПИАДЫ
+// ═══════════════════════════════════════════════════════════════
+
+let allUniversities = [];
+
+function showUniTab(tab, link) {
+  document.querySelectorAll('.uni-tab-content').forEach(function(el) { el.style.display = 'none'; });
+  document.getElementById('uniTab-' + tab).style.display = 'block';
+  link.closest('ul').querySelectorAll('.nav-link').forEach(function(a) { a.classList.remove('active'); });
+  link.classList.add('active');
+
+  if (tab === 'progs') loadPrograms();
+  if (tab === 'olys') loadOlympiads();
+}
+
+// ── Импорт partners.json ──
+async function importPartnersJSON() {
+  if (!confirm('Импортировать данные из partners.json? Существующие дубликаты будут пропущены.')) return;
+  try {
+    var r = await api('/api/universities/import', {method: 'POST'});
+    showToast('Импорт: ' + r.universities + ' вузов, ' + r.programs + ' программ, ' + r.olympiads + ' олимпиад');
+    await loadUniversities();
+  } catch(e) { showToast(e.message, 'danger'); }
+}
+
+// ── Загрузка вузов ──
+async function loadUniversities() {
+  try {
+    allUniversities = await api('/api/universities');
+    renderUniversitiesList(allUniversities);
+    populateUniFilters();
+    loadUniStats();
+  } catch(e) { showToast(e.message, 'danger'); }
+}
+
+function populateUniFilters() {
+  var cities = {};
+  allUniversities.forEach(function(u) { if (u.city) cities[u.city] = 1; });
+  var cityOpts = '<option value="">Все города</option>';
+  Object.keys(cities).sort().forEach(function(c) { cityOpts += '<option>' + c + '</option>'; });
+  var cf = document.getElementById('uniCityFilter');
+  if (cf) cf.innerHTML = cityOpts;
+
+  // Populate uni selects in programs/olympiads tabs
+  var uniOpts = '<option value="">Все вузы</option>';
+  allUniversities.forEach(function(u) { uniOpts += '<option value="' + u.id + '">' + u.name + '</option>'; });
+  ['progUniFilter', 'olyUniFilter'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = uniOpts;
+  });
+}
+
+async function loadUniStats() {
+  try {
+    var s = await api('/api/universities/stats');
+    var bar = document.getElementById('uniStatsBar');
+    if (bar) bar.innerHTML = '📊 Вузов: <b>' + s.universities + '</b> &nbsp;|&nbsp; Программ: <b>' + s.programs +
+      '</b> &nbsp;|&nbsp; Олимпиад: <b>' + s.olympiads + '</b> (проверено: ' + s.olympiads_reviewed + ')';
+  } catch(e) {}
+}
+
+function filterUniversities() {
+  var q = document.getElementById('uniSearch').value.toLowerCase();
+  var city = document.getElementById('uniCityFilter').value;
+  var list = allUniversities;
+  if (q) list = list.filter(function(u) { return u.name.toLowerCase().indexOf(q) >= 0; });
+  if (city) list = list.filter(function(u) { return u.city === city; });
+  renderUniversitiesList(list);
+}
+
+function renderUniversitiesList(list) {
+  var c = document.getElementById('uniListContainer');
+  if (!c) return;
+  if (!list.length) {
+    c.innerHTML = '<div style="text-align:center;padding:50px;color:var(--grey600)">' +
+      '<span class="material-icons" style="font-size:64px;color:#ccc">account_balance</span>' +
+      '<div style="margin-top:10px">Нет данных. Нажмите «Импорт partners.json» для загрузки.</div></div>';
+    return;
+  }
+  c.innerHTML = '<table class="data-table"><thead><tr>' +
+    '<th>ID</th><th>Название</th><th>Город</th><th>Действия</th>' +
+    '</tr></thead><tbody>' +
+    list.map(function(u) {
+      return '<tr><td>' + u.id + '</td><td><strong>' + u.name + '</strong></td><td>' + u.city + '</td>' +
+        '<td><div class="row-actions">' +
+        '<button class="icon-btn" title="Программы" onclick="showUniPrograms(' + u.id + ',\'' + u.name.replace(/'/g, "\\'") + '\')">' +
+          '<span class="material-icons" style="color:var(--blue700)">school</span></button>' +
+        '<button class="icon-btn" title="Олимпиады" onclick="showUniOlympiads(' + u.id + ',\'' + u.name.replace(/'/g, "\\'") + '\')">' +
+          '<span class="material-icons" style="color:var(--orange700)">workspace_premium</span></button>' +
+        '<button class="icon-btn" title="Удалить" onclick="deleteUniversity(' + u.id + ')">' +
+          '<span class="material-icons" style="color:var(--red700)">delete</span></button>' +
+        '</div></td></tr>';
+    }).join('') +
+    '</tbody></table>';
+}
+
+async function deleteUniversity(id) {
+  if (!confirm('Удалить вуз и все его программы/олимпиады?')) return;
+  try {
+    await api('/api/universities/' + id, {method: 'DELETE'});
+    showToast('Вуз удалён');
+    await loadUniversities();
+  } catch(e) { showToast(e.message, 'danger'); }
+}
+
+function showUniPrograms(uniId, uniName) {
+  // Switch to programs tab and filter by uni
+  showUniTab('progs', document.querySelector('.nav-tabs .nav-link:nth-child(1)').parentElement.parentElement.querySelectorAll('.nav-link')[1]);
+  var sel = document.getElementById('progUniFilter');
+  if (sel) sel.value = String(uniId);
+  loadPrograms();
+}
+
+function showUniOlympiads(uniId, uniName) {
+  showUniTab('olys', document.querySelector('.nav-tabs').querySelectorAll('.nav-link')[2]);
+  var sel = document.getElementById('olyUniFilter');
+  if (sel) sel.value = String(uniId);
+  loadOlympiads();
+}
+
+// ── Программы ──
+async function loadPrograms() {
+  var uniId = document.getElementById('progUniFilter').value;
+  var search = document.getElementById('progSearch').value;
+  var level = document.getElementById('progLevelFilter').value;
+  var url = '/api/programs?';
+  if (uniId) url += 'university_id=' + uniId + '&';
+  if (search) url += 'search=' + encodeURIComponent(search) + '&';
+  if (level) url += 'level=' + encodeURIComponent(level) + '&';
+
+  try {
+    var progs = await api(url);
+    renderPrograms(progs);
+  } catch(e) { showToast(e.message, 'danger'); }
+}
+
+function renderPrograms(list) {
+  var c = document.getElementById('progListContainer');
+  if (!c) return;
+  if (!list.length) {
+    c.innerHTML = '<div style="text-align:center;padding:40px;color:var(--grey600)">Программы не найдены</div>';
+    return;
+  }
+  var uniMap = {};
+  allUniversities.forEach(function(u) { uniMap[u.id] = u.name; });
+
+  c.innerHTML = '<table class="data-table"><thead><tr>' +
+    '<th>Код ОКСО</th><th>Программа</th><th>Вуз</th><th>Уровень</th><th>Балл</th><th>Бюджет</th><th>Стоимость</th><th>ЕГЭ</th>' +
+    '</tr></thead><tbody>' +
+    list.map(function(p) {
+      return '<tr>' +
+        '<td>' + (p.okso_code || '—') + '</td>' +
+        '<td><strong>' + p.program_name + '</strong></td>' +
+        '<td style="font-size:0.78rem">' + (uniMap[p.university_id] || p.university_id) + '</td>' +
+        '<td>' + (p.program_level || '—') + '</td>' +
+        '<td>' + (p.min_score || '—') + '</td>' +
+        '<td>' + (p.budget_places || '—') + '</td>' +
+        '<td>' + (p.cost ? p.cost.toLocaleString('ru') + ' ₽' : '—') + '</td>' +
+        '<td style="font-size:0.75rem;max-width:200px;overflow:hidden;text-overflow:ellipsis">' + (p.ege_subjects || '—') + '</td>' +
+        '</tr>';
+    }).join('') +
+    '</tbody></table>' +
+    '<div style="font-size:0.75rem;color:var(--grey600);margin-top:4px">Показано: ' + list.length + ' (макс. 200)</div>';
+}
+
+// ── Олимпиады ──
+async function loadOlympiads() {
+  var uniId = document.getElementById('olyUniFilter').value;
+  var search = document.getElementById('olySearch').value;
+  var reviewed = document.getElementById('olyReviewFilter').value;
+  var url = '/api/olympiads?';
+  if (uniId) url += 'university_id=' + uniId + '&';
+  if (search) url += 'search=' + encodeURIComponent(search) + '&';
+  if (reviewed) url += 'reviewed=' + reviewed + '&';
+
+  try {
+    var olys = await api(url);
+    renderOlympiads(olys);
+  } catch(e) { showToast(e.message, 'danger'); }
+}
+
+function renderOlympiads(list) {
+  var c = document.getElementById('olyListContainer');
+  if (!c) return;
+  if (!list.length) {
+    c.innerHTML = '<div style="text-align:center;padding:40px;color:var(--grey600)">Олимпиады не найдены</div>';
+    return;
+  }
+  var uniMap = {};
+  allUniversities.forEach(function(u) { uniMap[u.id] = u.name; });
+
+  c.innerHTML = '<table class="data-table"><thead><tr>' +
+    '<th>Олимпиада</th><th>Вуз</th><th>Уровень</th><th>Предмет</th><th>Льгота</th><th>Статус</th><th></th>' +
+    '</tr></thead><tbody>' +
+    list.map(function(o) {
+      var badge = o.reviewed
+        ? '<span class="badge bg-success">✅ Проверено</span>'
+        : '<span class="badge bg-warning text-dark">⏳ Ожидает</span>';
+      return '<tr>' +
+        '<td><strong>' + o.olympiad_name + '</strong></td>' +
+        '<td style="font-size:0.78rem">' + (uniMap[o.university_id] || o.university_id) + '</td>' +
+        '<td>' + (o.olympiad_level || '—') + '</td>' +
+        '<td>' + (o.subject || '—') + '</td>' +
+        '<td style="font-size:0.78rem">' + (o.benefit_type || '') + (o.benefit_detail ? ': ' + o.benefit_detail : '') + '</td>' +
+        '<td>' + badge + '</td>' +
+        '<td><div class="row-actions">' +
+        '<button class="icon-btn" title="Рецензировать" onclick="toggleOlympiadReview(' + o.id + ')">' +
+          '<span class="material-icons" style="color:var(--green700)">fact_check</span></button>' +
+        (o.source_url ? '<a href="' + o.source_url + '" target="_blank" class="icon-btn" title="Источник">' +
+          '<span class="material-icons" style="color:var(--blue700)">open_in_new</span></a>' : '') +
+        '<button class="icon-btn" title="Удалить" onclick="deleteOlympiad(' + o.id + ')">' +
+          '<span class="material-icons" style="color:var(--red700)">delete</span></button>' +
+        '</div></td></tr>';
+    }).join('') +
+    '</tbody></table>' +
+    '<div style="font-size:0.75rem;color:var(--grey600);margin-top:4px">Показано: ' + list.length + ' (макс. 200)</div>';
+}
+
+async function toggleOlympiadReview(id) {
+  try {
+    var r = await api('/api/olympiads/' + id + '/review', {method: 'PUT'});
+    showToast(r.reviewed ? 'Олимпиада проверена ✅' : 'Отметка снята');
+    loadOlympiads();
+  } catch(e) { showToast(e.message, 'danger'); }
+}
+
+async function deleteOlympiad(id) {
+  if (!confirm('Удалить олимпиаду?')) return;
+  try {
+    await api('/api/olympiads/' + id, {method: 'DELETE'});
+    showToast('Удалено');
+    loadOlympiads();
+  } catch(e) { showToast(e.message, 'danger'); }
+}
+
 
 /* === INIT === */
 document.addEventListener('DOMContentLoaded',async function(){
