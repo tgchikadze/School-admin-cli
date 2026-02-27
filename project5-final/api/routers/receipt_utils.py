@@ -1,148 +1,265 @@
 """
-routers/receipt_utils.py — Генерация PDF через координатную систему (P1/P2).
+receipt_utils.py — Генерация PDF-квитанций для веб-интерфейса.
 
-Обёртка над логикой generator.py для работы с моделями SQLAlchemy.
+Адаптирует generator.py (из Project 1-2) для работы в FastAPI:
+  - расчёт стоимости (fixed / per_subject + компенсация)
+  - одиночная генерация
+  - пакетная генерация (склейка в многостраничный PDF)
 """
-import json
-from pathlib import Path
+
+import os
+import io
 from datetime import datetime
+from pathlib import Path
+
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
-import io
+
+import json
 import platform
 
+# ── Шрифт (Times New Roman / Times-Roman) ──────────────────
 
-# =======================
-# Настройка шрифта
-# =======================
 try:
     if platform.system() == "Windows":
-        pdfmetrics.registerFont(TTFont("TimesNewRoman", "C:/Windows/Fonts/times.ttf"))
-        _FONT_NAME = "TimesNewRoman"
-    else:
-        _FONT_NAME = "Times-Roman"
-except Exception:
-    _FONT_NAME = "Times-Roman"
-
-
-def load_template_config(json_path: Path) -> dict:
-    """Загрузка конфигурации координат из JSON."""
-    if not json_path.exists():
-        raise FileNotFoundError(
-            f"Файл координат не найден: {json_path}\n"
-            f"Поместите receipt_coordinates.json в папку templates/"
+        pdfmetrics.registerFont(
+            TTFont("TimesNewRoman", r"C:\Windows\Fonts\times.ttf")
         )
-    with open(json_path, "r", encoding="utf-8") as f:
+        FONTNAME = "TimesNewRoman"
+    else:
+        FONTNAME = "Times-Roman"
+except Exception:
+    FONTNAME = "Times-Roman"
+
+
+# ── Пути к шаблону и координатам ───────────────────────────
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+TEMPLATES_DIR = os.path.join(DATA_DIR, "templates")
+RECEIPTS_DIR = os.path.join(DATA_DIR, "receipts")
+
+TEMPLATE_PDF = os.path.join(TEMPLATES_DIR, "receipt_template.pdf")
+COORDINATES_JSON = os.path.join(TEMPLATES_DIR, "receipt_coordinates.json")
+
+
+def _ensure_dirs():
+    """Создаёт папки data/templates и data/receipts если их нет."""
+    os.makedirs(TEMPLATES_DIR, exist_ok=True)
+    os.makedirs(RECEIPTS_DIR, exist_ok=True)
+
+
+def load_config(json_path: str | None = None) -> dict:
+    """Загружает JSON-конфигурацию координат полей."""
+    path = json_path or COORDINATES_JSON
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Файл координат не найден: {path}")
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def generate_receipt_pdf(
-    student,
-    school_class,
-    exam_choices: list,
-    output_path: str,
-    templates_dir: Path,
-):
+# ── Расчёт стоимости ───────────────────────────────────────
+
+def calc_receipt_amount(
+    pricing_type: str,
+    base_price: float,
+    price_per_subject: float,
+    exam_count: int,
+    compensation: float,
+) -> float:
     """
-    Генерирует PDF-квитанцию через координатную систему.
+    Рассчитать итоговую сумму к оплате.
 
-    Args:
-        student: Объект Student (SQLAlchemy)
-        school_class: Объект SchoolClass (SQLAlchemy)
-        exam_choices: Список ExamChoice (SQLAlchemy)
-        output_path: Путь для сохранения PDF
-        templates_dir: Папка с templates/ (receipt_template.pdf + receipt_coordinates.json)
+    Классы 7-10 (fixed):       base_price - compensation
+    Класс 11   (per_subject):  exam_count * price_per_subject - compensation
+
+    compensation > 0 → переплата (вычитаем из суммы)
+    compensation < 0 → задолженность (прибавляем к сумме, т.к. -(-x) = +x)
     """
-    # Загрузка конфигурации
-    coordinates_path = templates_dir / "receipt_coordinates.json"
-    config = load_template_config(coordinates_path)
-
-    template_filename = config.get("source_template", "receipt_template.pdf")
-    template_path = templates_dir / template_filename
-
-    if not template_path.exists():
-        raise FileNotFoundError(
-            f"Шаблон не найден: {template_path}\n"
-            f"Поместите {template_filename} в папку templates/"
-        )
-
-    # Подготовка данных
-    student_name = student.full_name
-    contract_number = student.contract_number
-    month_year = datetime.now().strftime("%m.%Y")
-
-    # Формирование списка предметов
-    if school_class.pricing_type == "fixed":
-        # 7-10 классы: список предметов класса
-        courses = school_class.subjects if school_class.subjects else []
+    if pricing_type == "per_subject":
+        raw = exam_count * price_per_subject
     else:
-        # 11 класс: список выбранных ЕГЭ
-        courses = [ec.subject_name for ec in exam_choices]
+        raw = base_price
+    return raw - compensation
 
-    if not courses:
-        courses = ["Обучение"]
 
-    # Расчёт суммы к оплате
-    amount = student.monthly_payment - student.compensation
-    compensation_str = f"{student.compensation:,.2f}".replace(",", " ") if student.compensation != 0 else ""
-    amount_str = f"{amount:,.2f}".replace(",", " ")
+# ── Низкоуровневая генерация PDF ───────────────────────────
 
-    # Подготовка данных для наложения
+def _generate_overlay(field_values: dict, config: dict) -> bytes:
+    """
+    Создаёт PDF-overlay с текстовыми данными по координатам.
+    Возвращает bytes готового одностраничного PDF.
+    """
     font_size = config.get("font_size", 10)
     line_height = config.get("line_height", 11)
     blocks = config.get("blocks", [])
 
-    role_map = {
-        "ФИО": student_name,
-        "Вид платежа": courses,  # Список строк
-        "№ договора": contract_number,
-        "Месяц/год": month_year,
-        "компенсация": compensation_str,
-        "К оплате": amount_str,
-    }
-
-    # Создание overlay с текстом
     packet = io.BytesIO()
     can = canvas.Canvas(packet, pagesize=A4)
-    can.setFont(_FONT_NAME, font_size)
+    can.setFont(FONTNAME, font_size)
 
     for block in blocks:
         for role, coord in block.items():
-            value = role_map.get(role)
+            value = field_values.get(role)
             if not value:
                 continue
-
-            x, y = coord["x"], coord["y"]
+            x = coord["x"]
+            y = coord["y"]
 
             if isinstance(value, list):
-                # Многострочное поле (предметы)
                 for i, line in enumerate(value):
                     if line:
                         can.drawString(x, y - i * line_height, str(line))
             else:
-                # Однострочное поле
                 can.drawString(x, y, str(value))
 
     can.save()
-
-    # Наложение на шаблон
     packet.seek(0)
-    overlay_pdf = PdfReader(packet)
-    template_pdf = PdfReader(template_path)
-    writer = PdfWriter()
+    return packet.read()
 
-    page = template_pdf.pages[0]
-    page.merge_page(overlay_pdf.pages[0])
+
+def generate_single_receipt(
+    student_name: str,
+    courses: list[str] | str,
+    contract_number: str,
+    month_year: str,
+    amount: float,
+    compensation: float,
+    output_path: str,
+    config: dict | None = None,
+) -> str:
+    """
+    Генерирует одну PDF-квитанцию (overlay на шаблон).
+
+    Возвращает абсолютный путь к файлу.
+    """
+    _ensure_dirs()
+
+    if config is None:
+        config = load_config()
+
+    template_path = TEMPLATE_PDF
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"Шаблон PDF не найден: {template_path}")
+
+    # Подготовка «Вид платежа» — список предметов (каждый на своей строке)
+    if isinstance(courses, list):
+        courses_list = [str(c) for c in courses if str(c).strip()]
+    else:
+        courses_list = [str(courses)]
+
+    # Формат суммы
+    amount_str = f"{amount:,.2f}".replace(",", " ").replace(".", ",")
+
+    # Компенсация — показываем только если != 0
+    comp_str = ""
+    if compensation and compensation != 0:
+        comp_str = f"{compensation:,.2f}".replace(",", " ").replace(".", ",")
+
+    # Маппинг ролей → значений (согласно receipt_coordinates.json)
+    roles = config.get("roles", [])
+    role_map = {
+        "ФИО": student_name,
+        "Вид платежа": courses_list,
+        "№ договора": contract_number,
+        "Месяц/год": month_year,
+        "компенсация": comp_str,
+        "К оплате": amount_str,
+    }
+    field_values = {}
+    for role in roles:
+        if role in role_map:
+            field_values[role] = role_map[role]
+
+    # Генерируем overlay
+    overlay_bytes = _generate_overlay(field_values, config)
+
+    # Мержим overlay с шаблоном
+    overlay_reader = PdfReader(io.BytesIO(overlay_bytes))
+    template_reader = PdfReader(template_path)
+
+    writer = PdfWriter()
+    page = template_reader.pages[0]
+    page.merge_page(overlay_reader.pages[0])
     writer.add_page(page)
 
-    # Сохранение
-    output_file_path = Path(output_path)
-    output_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(output_file_path, "wb") as f:
+    # Сохраняем
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with open(output, "wb") as f:
         writer.write(f)
 
-    return str(output_file_path.resolve())
+    return str(output.resolve())
+
+
+def generate_batch_receipts(
+    receipts_data: list[dict],
+    output_path: str,
+    config: dict | None = None,
+) -> str:
+    """
+    Пакетная генерация — склеивает несколько квитанций в один PDF.
+
+    receipts_data — список словарей, каждый содержит:
+        student_name, courses, contract_number, month_year, amount, compensation
+
+    Возвращает абсолютный путь к файлу.
+    """
+    _ensure_dirs()
+
+    if config is None:
+        config = load_config()
+
+    template_path = TEMPLATE_PDF
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"Шаблон PDF не найден: {template_path}")
+
+    writer = PdfWriter()
+
+    for data in receipts_data:
+        student_name = data["student_name"]
+        courses = data.get("courses", "")
+        contract_number = data.get("contract_number", "")
+        month_year = data.get("month_year", "")
+        amount = data.get("amount", 0.0)
+        compensation = data.get("compensation", 0.0)
+
+        if isinstance(courses, list):
+            courses_list = [str(c) for c in courses if str(c).strip()]
+        else:
+            courses_list = [str(courses)]
+
+        amount_str = f"{amount:,.2f}".replace(",", " ").replace(".", ",")
+        comp_str = ""
+        if compensation and compensation != 0:
+            comp_str = f"{compensation:,.2f}".replace(",", " ").replace(".", ",")
+
+        roles = config.get("roles", [])
+        role_map = {
+            "ФИО": student_name,
+            "Вид платежа": courses_list,
+            "№ договора": contract_number,
+            "Месяц/год": month_year,
+            "компенсация": comp_str,
+            "К оплате": amount_str,
+        }
+        field_values = {r: role_map[r] for r in roles if r in role_map}
+
+        overlay_bytes = _generate_overlay(field_values, config)
+        overlay_reader = PdfReader(io.BytesIO(overlay_bytes))
+
+        # Каждая квитанция — свежая копия шаблона
+        template_reader = PdfReader(template_path)
+        page = template_reader.pages[0]
+        page.merge_page(overlay_reader.pages[0])
+        writer.add_page(page)
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with open(output, "wb") as f:
+        writer.write(f)
+
+    return str(output.resolve())
