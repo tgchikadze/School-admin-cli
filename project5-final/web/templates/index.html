@@ -124,7 +124,7 @@ body { background:#FAFAFA; font-family:'Segoe UI',system-ui,sans-serif; margin:0
 
 <!-- =============== SIDEBAR =============== -->
 <div class="sidebar">
-    <div class="brand"> БИОТЕХ 225 <img src="logo.png"></div>
+    <div class="brand"> БИОТЕХ 225 <img src="/static/logo.png"></div>
     <nav>
         <a href="#" class="active" onclick="showPage('students',this)">
             <span class="material-icons">people</span> Ученики
@@ -145,9 +145,10 @@ body { background:#FAFAFA; font-family:'Segoe UI',system-ui,sans-serif; margin:0
         <a href="#" onclick="showPage('universities',this)">
             <span class="material-icons">account_balance</span> Вузы
         </a>
-        <a href="#" onclick="showSection('olymp-review')">
-  <span class="material-icons">fact_check</span> Ревью олимпиад
+<a href="#" onclick="showPage('olymp-review',this)">
+    <span class="material-icons">fact_check</span> Ревью олимпиад
 </a>
+
 
     </nav>
     <div class="user-block">
@@ -332,37 +333,8 @@ body { background:#FAFAFA; font-family:'Segoe UI',system-ui,sans-serif; margin:0
     <div id="searchResults"></div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     PAGE 6: ВУЗЫ (placeholder)
-     ══════════════════════════════════════════ -->
-
-<!-- ======== PAGE 6: ВУЗЫ / ПРОГРАММЫ / ОЛИМПИАДЫ ======== -->
 <div id="page-universities" class="page-section">
   <div class="page-title">Вузы-партнёры / Программы / Олимпиады</div>
-    <!-- ═══ Секция: Ревью олимпиад ═══ -->
-<div id="page-olymp-review" class="page-section" style="display:none;">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0"><span class="material-icons align-middle">fact_check</span> Ревью олимпиад</h4>
-    <div class="d-flex gap-2">
-      <button class="btn btn-outline-warning btn-sm" onclick="importOlympiadsRaw()">
-        <span class="material-icons align-middle" style="font-size:18px;">upload_file</span> Импорт из CSV
-      </button>
-      <select id="olympReviewFilter" class="form-select form-select-sm" style="width:auto;" onchange="loadOlympReview()">
-        <option value="">Все</option>
-        <option value="false" selected>Не проверенные</option>
-        <option value="true">Проверенные ✅</option>
-      </select>
-    </div>
-  </div>
-
-  <div id="olympReviewStats" class="text-muted small mb-2"></div>
-
-  <!-- Карточки олимпиад -->
-  <div id="olympReviewCards"></div>
-
-  <!-- Пагинация -->
-  <nav id="olympReviewPagination" class="d-flex justify-content-center mt-3"></nav>
-</div>
   <hr style="margin:6px 0 10px">
 
   <!-- Toolbar -->
@@ -441,7 +413,32 @@ body { background:#FAFAFA; font-family:'Segoe UI',system-ui,sans-serif; margin:0
   </div>
 </div>
 
+
+<!-- ═══ Секция: Ревью олимпиад ═══ -->
+<div id="page-olymp-review" class="page-section">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><span class="material-icons align-middle">fact_check</span> Ревью олимпиад</h4>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-warning btn-sm" onclick="importOlympiadsRaw()">
+        <span class="material-icons align-middle" style="font-size:18px;">upload_file</span> Импорт из CSV
+      </button>
+      <select id="olympReviewFilter" class="form-select form-select-sm" style="width:auto;" onchange="loadOlympReview()">
+        <option value="">Все</option>
+        <option value="false" selected>Не проверенные</option>
+        <option value="true">Проверенные ✅</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="olympReviewStats" class="text-muted small mb-2"></div>
+  <!-- Карточки олимпиад -->
+  <div id="olympReviewCards"></div>
+  <!-- Пагинация -->
+  <nav id="olympReviewPagination" class="d-flex justify-content-center mt-3"></nav>
 </div>
+
+
 
 </div><!-- /main -->
 
@@ -562,10 +559,9 @@ function showPage(id,link){
   if(id==='exams') loadExamsPage();
   if(id==='receipts') populateReceiptDropdown();
   if(id==='batch') populateAllClassDropdowns();
-  if (id === 'universities') loadUniversities();
   if(id==='olymp-review') loadOlympReview();
-
 }
+
 
 function showToast(msg,color){
   color=color||'success';
@@ -1296,7 +1292,7 @@ const OLYMP_PAGE_SIZE = 15;
 async function importOlympiadsRaw() {
   if (!confirm("Импортировать олимпиады из olympiads_raw.csv?\nДубли НЕ будут созданы.")) return;
   try {
-    const r = await fetchJSON("/api/admin/import_olympiads_raw", {method: "POST"});
+    const r = await api("/api/admin/import_olympiads_raw", {method: "POST"});
     const msg = `Создано: ${r.created}, пропущено (дубли): ${r.skipped_dup || 0}, ` +
                 `без имени: ${r.skipped_noname || 0}, без вуза: ${r.skipped_nouni || 0}`;
     showToast(msg, "success");
@@ -1306,13 +1302,18 @@ async function importOlympiadsRaw() {
   }
 }
 
+function esc(s) {
+    if (!s) return "";
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
 async function loadOlympReview() {
   const filter = document.getElementById("olympReviewFilter").value;
   let url = `/api/olympiads?page=${olympReviewPage}&size=${OLYMP_PAGE_SIZE}`;
   if (filter !== "") url += `&reviewed=${filter}`;
 
   try {
-    const data = await fetchJSON(url);
+    const data = await api(url);
     document.getElementById("olympReviewStats").textContent =
       `Всего записей: ${data.total} | Страница ${data.page} из ${Math.ceil(data.total / data.size) || 1}`;
     renderOlympCards(data.items);
@@ -1422,7 +1423,7 @@ async function saveOlymp(id) {
     benefit_detail: document.getElementById(`or-detail-${id}`).value.trim(),
   };
   try {
-    await fetchJSON(`/api/olympiads/${id}`, {
+    await api(`/api/olympiads/${id}`, {
       method: "PATCH",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(body),
@@ -1435,7 +1436,7 @@ async function saveOlymp(id) {
 
 async function approveOlymp(id) {
   try {
-    await fetchJSON(`/api/olympiads/${id}`, {
+    await api(`/api/olympiads/${id}`, {
       method: "PATCH",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({reviewed: true}),
@@ -1449,7 +1450,7 @@ async function approveOlymp(id) {
 
 async function unapproveOlymp(id) {
   try {
-    await fetchJSON(`/api/olympiads/${id}`, {
+    await api(`/api/olympiads/${id}`, {
       method: "PATCH",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({reviewed: false}),
@@ -1464,7 +1465,7 @@ async function unapproveOlymp(id) {
 async function deleteOlymp(id) {
   if (!confirm("Удалить эту запись?")) return;
   try {
-    await fetchJSON(`/api/olympiads/${id}`, {method: "DELETE"});
+    await api(`/api/olympiads/${id}`, {method: "DELETE"});
     showToast("🗑 Удалено", "info");
     loadOlympReview();
   } catch (e) {

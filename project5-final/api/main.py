@@ -17,10 +17,10 @@ from .auth import decode_access_token
 from .routers import auth as auth_router
 from .routers import admin as admin_router
 from .routers import universities as universities_router
-
 from .routers import students as students_router
 from .routers import receipts as receipts_router
 from .routers import analytics as analytics_router
+from .routers import olympiads as olympiads_router
 
 
 @asynccontextmanager
@@ -41,6 +41,7 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, "web", "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 PUBLIC_PATHS = {"/login", "/api/login", "/api/register/json", "/docs", "/openapi.json", "/redoc"}
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "web", "static")), name="static")
 
 
 @app.middleware("http")
@@ -65,10 +66,10 @@ async def auth_middleware(request: Request, call_next):
 app.include_router(auth_router.router)
 app.include_router(admin_router.router)
 app.include_router(universities_router.router)
-
 app.include_router(students_router.router)
 app.include_router(receipts_router.router)
 app.include_router(analytics_router.router)
+app.include_router(olympiads_router.router)
 
 
 @app.get("/", response_class=HTMLResponse)

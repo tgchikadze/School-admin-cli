@@ -46,12 +46,13 @@ class ProgramOut(ProgramBase):
 class OlympiadBase(BaseModel):
     university_id: int
     olympiad_name: str
-    olympiad_level: int | None = None
+    olympiad_level: str | None = None
     subject: str | None = None
     benefit_type: str | None = None
     benefit_detail: str | None = None
     source_url: str | None = None
     reviewed: bool = False
+
 
 class OlympiadCreate(OlympiadBase):
     pass

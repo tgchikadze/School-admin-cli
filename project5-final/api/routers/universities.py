@@ -165,7 +165,7 @@ def delete_program(prog_id: int, db: Session = Depends(get_db),
 # ═══════════════════════════════════════════════════════════════
 #  OLYMPIADS
 # ═══════════════════════════════════════════════════════════════
-
+'''
 @router.get("/api/olympiads", response_model=list[OlympiadOut])
 def list_olympiads(
     university_id: int | None = None,
@@ -186,7 +186,7 @@ def list_olympiads(
     if reviewed is not None:
         q = q.filter(Olympiad.reviewed == reviewed)
     return q.order_by(Olympiad.olympiad_name).limit(200).all()
-
+'''
 
 @router.get("/api/olympiads/{oly_id}", response_model=OlympiadOut)
 def get_olympiad(oly_id: int, db: Session = Depends(get_db),
