@@ -1,1 +1,0 @@
-from core.receipt.generator import generate_receipt, generate_receipt_from_dict
