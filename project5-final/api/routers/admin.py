@@ -240,3 +240,25 @@ def clear_table(
     count = db.query(model).delete()
     db.commit()
     return {"detail": f"Cleared {count} rows from {table}"}
+
+@router.post("/admin/import_olympiads_raw")
+def import_olympiads_raw(db: Session = Depends(get_db)):
+    """
+    Импорт сырых олимпиад из data/olympiads_raw.csv.
+    Идемпотентен — дубли не создаются.
+    """
+    from api.database import import_olympiads_csv
+    stats = import_olympiads_csv(db)
+    return stats
+
+
+@router.post("/admin/import_all")
+def import_all(db: Session = Depends(get_db)):
+    """
+    Полный импорт: partners.json (вузы + программы) + olympiads_raw.csv.
+    Идемпотентен.
+    """
+    from api.database import import_partners_json, import_olympiads_csv
+    pj = import_partners_json(db)
+    oly = import_olympiads_csv(db)
+    return {"partners_json": pj, "olympiads_csv": oly}

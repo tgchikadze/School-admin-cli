@@ -2,6 +2,8 @@
 
 import os
 import json
+import csv
+import re
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from .models import Base, SchoolClass
@@ -202,6 +204,215 @@ def import_partners_json(db: Session | None = None) -> dict:
         if close_after:
             db.close()
 
+def _normalize_name(s: str) -> str:
+    """
+    Приводит строку к каноническому виду для сравнения:
+    lowercase, убираем лишние пробелы, «ё»→«е», убираем кавычки и точки.
+    """
+    if not s:
+        return ""
+    s = s.strip().lower()
+    s = s.replace("ё", "е")
+    s = re.sub(r"[«»\"'\.]+", "", s)
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+def _find_university(db, uni_key: str, uni_name: str):
+    """
+    Ищет вуз в БД по точному имени → по нормализованному имени → по uni_key.
+    Возвращает University или None.
+    """
+    from .models import University
+
+    # 1) Точное совпадение по name
+    uni = db.query(University).filter(University.name == uni_name).first()
+    if uni:
+        return uni
+
+    # 2) Нормализованное сравнение по всем вузам в БД
+    norm_target = _normalize_name(uni_name)
+    if norm_target:
+        for u in db.query(University).all():
+            if _normalize_name(u.name) == norm_target:
+                return u
+
+    # 3) Поиск по подстроке uni_key в name (напр. "ИТМО" содержит "итмо")
+    norm_key = _normalize_name(uni_key)
+    if norm_key:
+        for u in db.query(University).all():
+            if norm_key in _normalize_name(u.name):
+                return u
+
+    return None
+
+def _olympiad_signature(uni_id: int, name: str, subject: str,
+                        benefit_type: str, program_name: str) -> str:
+    """
+    Уникальная сигнатура олимпиадной записи для проверки дубликатов.
+    Одна и та же олимпиада + предмет + тип льготы + программа = дубль.
+    """
+    parts = [
+        str(uni_id),
+        _normalize_name(name),
+        _normalize_name(subject),
+        _normalize_name(benefit_type),
+        _normalize_name(program_name),
+    ]
+    return "|".join(parts)
+
+def import_olympiads_csv(db: Session | None = None) -> dict:
+    """
+    Черновой импорт олимпиад из data/olympiads_raw.csv.
+
+    - Нормализует названия для предотвращения дубликатов
+    - Маппит university_id из CSV → University в БД
+    - Создаёт Olympiad(reviewed=False)
+    - Идемпотентен: повторный вызов НЕ создаёт дубли
+
+    Возвращает: {created, skipped_noname, skipped_nouni, skipped_dup, total}
+    """
+    from .models import University, Olympiad
+
+    csv_path = os.path.join(DATADIR, "olympiads_raw.csv")
+    if not os.path.exists(csv_path):
+        return {"error": "olympiads_raw.csv not found", "path": csv_path}
+
+    close_after = False
+    if db is None:
+        db = SessionLocal()
+        close_after = True
+
+    try:
+        # Собираем существующие сигнатуры из БД
+        existing_sigs = set()
+        for o in db.query(Olympiad).all():
+            sig = _olympiad_signature(
+                o.university_id,
+                o.olympiad_name or "",
+                o.subject or "",
+                o.benefit_type or "",
+                ""  # program_name нет в модели — пока без неё
+            )
+            existing_sigs.add(sig)
+
+        stats = {
+            "total": 0,
+            "created": 0,
+            "skipped_noname": 0,
+            "skipped_nouni": 0,
+            "skipped_dup": 0,
+            "new_universities": 0,
+        }
+
+        with open(csv_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                stats["total"] += 1
+
+                # --- Фильтр: пустое имя олимпиады ---
+                raw_name = (row.get("olympiad_name") or "").strip()
+                if not raw_name or raw_name.lower() == "nan":
+                    stats["skipped_noname"] += 1
+                    continue
+
+                # --- Маппинг вуза ---
+                uni_key = (row.get("university_id") or "").strip()
+                uni_name_csv = (row.get("university_name") or "").strip()
+                if uni_name_csv.lower() == "nan":
+                    uni_name_csv = ""
+
+                uni = _find_university(db, uni_key, uni_name_csv)
+
+                if not uni:
+                    # Создаём новый вуз с пометкой
+                    display_name = uni_name_csv or uni_key
+                    city = (row.get("city") or "").strip()
+                    city = {"spb": "Санкт-Петербург", "msk": "Москва"}.get(
+                        city.lower(), city
+                    ) or "нет данных"
+
+                    uni = University(name=display_name, city=city)
+                    db.add(uni)
+                    db.flush()  # получаем uni.id
+                    stats["new_universities"] += 1
+
+                # --- Нормализация полей ---
+                subject = (row.get("subject") or "").strip()
+                if subject.lower() == "nan":
+                    subject = ""
+
+                benefit_type = (row.get("benefit_type") or "").strip()
+                if benefit_type.lower() == "nan":
+                    benefit_type = ""
+                # Нормализуем разделитель: "БВИ;100 баллов" → "БВИ; 100 баллов"
+                benefit_type = "; ".join(
+                    s.strip() for s in benefit_type.replace(";", ";").split(";")
+                    if s.strip() and s.strip().lower() != "nan"
+                )
+
+                level_raw = (row.get("olympiad_level") or "").strip()
+                level = _safe_int(level_raw) if level_raw.lower() != "nan" else None
+
+                benefit_detail = (row.get("benefit_detail") or "").strip()
+                if benefit_detail.lower() == "nan":
+                    benefit_detail = ""
+                # Обрезаем мусорные длинные тексты (HTML-дампы)
+                if len(benefit_detail) > 500:
+                    benefit_detail = benefit_detail[:500] + "…"
+
+                notes = (row.get("notes") or "").strip()
+                if notes.lower() == "nan":
+                    notes = ""
+
+                source_url = (row.get("olympiad_url") or "").strip()
+                if source_url.lower() == "nan":
+                    source_url = ""
+
+                program_name = (row.get("program_name") or "").strip()
+                if program_name.lower() == "nan":
+                    program_name = ""
+
+                # --- Дедупликация ---
+                sig = _olympiad_signature(
+                    uni.id, raw_name, subject, benefit_type, ""
+                )
+                if sig in existing_sigs:
+                    stats["skipped_dup"] += 1
+                    continue
+                existing_sigs.add(sig)
+
+                # --- Формируем benefit_detail из notes + detail ---
+                combined_detail = ""
+                if notes:
+                    combined_detail = notes
+                if benefit_detail and benefit_detail != notes:
+                    if combined_detail:
+                        combined_detail += " | "
+                    combined_detail += benefit_detail
+
+                # --- Создаём запись ---
+                o = Olympiad(
+                    university_id=uni.id,
+                    olympiad_name=raw_name,
+                    olympiad_level=level,
+                    subject=subject,
+                    benefit_type=benefit_type,
+                    benefit_detail=combined_detail[:1000] if combined_detail else "",
+                    source_url=source_url,
+                    reviewed=False,
+                )
+                db.add(o)
+                stats["created"] += 1
+
+        db.commit()
+        return stats
+
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        if close_after:
+            db.close()
 
 def _safe_int(val) -> int | None:
     """Безопасное преобразование в int (пустые строки → None)."""

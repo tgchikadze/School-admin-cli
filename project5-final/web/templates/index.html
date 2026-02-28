@@ -38,6 +38,7 @@ body { background:#FAFAFA; font-family:'Segoe UI',system-ui,sans-serif; margin:0
 .sidebar .user-block {
     padding:12px 16px; border-top:1px solid #333;
     font-size:0.75rem; color:#888;
+
 }
 
 /* === MAIN === */
@@ -144,6 +145,10 @@ body { background:#FAFAFA; font-family:'Segoe UI',system-ui,sans-serif; margin:0
         <a href="#" onclick="showPage('universities',this)">
             <span class="material-icons">account_balance</span> Вузы
         </a>
+        <a href="#" onclick="showSection('olymp-review')">
+  <span class="material-icons">fact_check</span> Ревью олимпиад
+</a>
+
     </nav>
     <div class="user-block">
         <span class="material-icons" style="font-size:16px; vertical-align:middle">person</span>
@@ -334,6 +339,30 @@ body { background:#FAFAFA; font-family:'Segoe UI',system-ui,sans-serif; margin:0
 <!-- ======== PAGE 6: ВУЗЫ / ПРОГРАММЫ / ОЛИМПИАДЫ ======== -->
 <div id="page-universities" class="page-section">
   <div class="page-title">Вузы-партнёры / Программы / Олимпиады</div>
+    <!-- ═══ Секция: Ревью олимпиад ═══ -->
+<div id="page-olymp-review" class="page-section" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><span class="material-icons align-middle">fact_check</span> Ревью олимпиад</h4>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-warning btn-sm" onclick="importOlympiadsRaw()">
+        <span class="material-icons align-middle" style="font-size:18px;">upload_file</span> Импорт из CSV
+      </button>
+      <select id="olympReviewFilter" class="form-select form-select-sm" style="width:auto;" onchange="loadOlympReview()">
+        <option value="">Все</option>
+        <option value="false" selected>Не проверенные</option>
+        <option value="true">Проверенные ✅</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="olympReviewStats" class="text-muted small mb-2"></div>
+
+  <!-- Карточки олимпиад -->
+  <div id="olympReviewCards"></div>
+
+  <!-- Пагинация -->
+  <nav id="olympReviewPagination" class="d-flex justify-content-center mt-3"></nav>
+</div>
   <hr style="margin:6px 0 10px">
 
   <!-- Toolbar -->
@@ -534,6 +563,8 @@ function showPage(id,link){
   if(id==='receipts') populateReceiptDropdown();
   if(id==='batch') populateAllClassDropdowns();
   if (id === 'universities') loadUniversities();
+  if(id==='olymp-review') loadOlympReview();
+
 }
 
 function showToast(msg,color){
@@ -1254,5 +1285,196 @@ document.addEventListener('DOMContentLoaded',async function(){
 
 async function doLogout(){await fetch('/api/logout',{method:'POST'});window.location.href='/login';}
 </script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   Ревью олимпиад — JS
+   ═══════════════════════════════════════════════════════════ */
+
+let olympReviewPage = 1;
+const OLYMP_PAGE_SIZE = 15;
+
+async function importOlympiadsRaw() {
+  if (!confirm("Импортировать олимпиады из olympiads_raw.csv?\nДубли НЕ будут созданы.")) return;
+  try {
+    const r = await fetchJSON("/api/admin/import_olympiads_raw", {method: "POST"});
+    const msg = `Создано: ${r.created}, пропущено (дубли): ${r.skipped_dup || 0}, ` +
+                `без имени: ${r.skipped_noname || 0}, без вуза: ${r.skipped_nouni || 0}`;
+    showToast(msg, "success");
+    loadOlympReview();
+  } catch (e) {
+    showToast("Ошибка импорта: " + e.message, "danger");
+  }
+}
+
+async function loadOlympReview() {
+  const filter = document.getElementById("olympReviewFilter").value;
+  let url = `/api/olympiads?page=${olympReviewPage}&size=${OLYMP_PAGE_SIZE}`;
+  if (filter !== "") url += `&reviewed=${filter}`;
+
+  try {
+    const data = await fetchJSON(url);
+    document.getElementById("olympReviewStats").textContent =
+      `Всего записей: ${data.total} | Страница ${data.page} из ${Math.ceil(data.total / data.size) || 1}`;
+    renderOlympCards(data.items);
+    renderOlympPagination(data.total, data.page, data.size);
+  } catch (e) {
+    document.getElementById("olympReviewCards").innerHTML =
+      `<div class="alert alert-danger">Ошибка загрузки: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderOlympCards(items) {
+  const container = document.getElementById("olympReviewCards");
+  if (!items || !items.length) {
+    container.innerHTML = `<div class="text-center text-muted py-4">Нет записей</div>`;
+    return;
+  }
+
+  container.innerHTML = items.map(o => {
+    const statusClass = o.reviewed ? "border-start border-4 border-success" : "border-start border-4 border-warning";
+    const statusBadge = o.reviewed
+      ? `<span class="badge bg-success">✅ Проверено</span>`
+      : `<span class="badge bg-warning text-dark">⏳ На проверке</span>`;
+
+    return `
+    <div class="card mb-2 ${statusClass}" id="olymp-card-${o.id}">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <strong class="text-primary">${esc(o.olympiad_name)}</strong>
+            <small class="text-muted ms-2">#${o.id}</small>
+          </div>
+          ${statusBadge}
+        </div>
+        <div class="row g-2 small">
+          <div class="col-md-6">
+            <label class="form-label mb-0 fw-bold text-muted">Предмет:</label>
+            <input class="form-control form-control-sm" id="or-subject-${o.id}"
+                   value="${esc(o.subject || "")}" placeholder="химия, биология...">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label mb-0 fw-bold text-muted">Уровень:</label>
+            <input class="form-control form-control-sm" id="or-level-${o.id}"
+                   value="${o.olympiad_level || ""}" placeholder="1, 2, 3">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label mb-0 fw-bold text-muted">Вуз (ID):</label>
+            <input class="form-control form-control-sm" id="or-uni-${o.id}"
+                   value="${o.university_id || ""}" disabled>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label mb-0 fw-bold text-muted">Тип льготы:</label>
+            <input class="form-control form-control-sm" id="or-btype-${o.id}"
+                   value="${esc(o.benefit_type || "")}" placeholder="БВИ; 100 баллов; доп. баллы">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label mb-0 fw-bold text-muted">URL источника:</label>
+            <input class="form-control form-control-sm" id="or-url-${o.id}"
+                   value="${esc(o.source_url || "")}">
+          </div>
+          <div class="col-12">
+            <label class="form-label mb-0 fw-bold text-muted">Детали / заметки:</label>
+            <textarea class="form-control form-control-sm" id="or-detail-${o.id}"
+                      rows="2">${esc(o.benefit_detail || "")}</textarea>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-2 justify-content-end">
+          ${!o.reviewed ? `
+          <button class="btn btn-success btn-sm" onclick="approveOlymp(${o.id})">
+            ✅ Подтвердить
+          </button>` : `
+          <button class="btn btn-outline-secondary btn-sm" onclick="unapproveOlymp(${o.id})">
+            ↩ Вернуть на проверку
+          </button>`}
+          <button class="btn btn-primary btn-sm" onclick="saveOlymp(${o.id})">
+            💾 Сохранить
+          </button>
+          <button class="btn btn-outline-danger btn-sm" onclick="deleteOlymp(${o.id})">
+            🗑
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderOlympPagination(total, page, size) {
+  const pages = Math.ceil(total / size) || 1;
+  const nav = document.getElementById("olympReviewPagination");
+  if (pages <= 1) { nav.innerHTML = ""; return; }
+
+  let html = '<ul class="pagination pagination-sm mb-0">';
+  for (let p = 1; p <= pages; p++) {
+    html += `<li class="page-item ${p === page ? "active" : ""}">
+      <a class="page-link" href="#" onclick="olympReviewPage=${p};loadOlympReview();return false;">${p}</a>
+    </li>`;
+  }
+  html += "</ul>";
+  nav.innerHTML = html;
+}
+
+async function saveOlymp(id) {
+  const body = {
+    subject:        document.getElementById(`or-subject-${id}`).value.trim(),
+    olympiad_level: parseInt(document.getElementById(`or-level-${id}`).value) || null,
+    benefit_type:   document.getElementById(`or-btype-${id}`).value.trim(),
+    source_url:     document.getElementById(`or-url-${id}`).value.trim(),
+    benefit_detail: document.getElementById(`or-detail-${id}`).value.trim(),
+  };
+  try {
+    await fetchJSON(`/api/olympiads/${id}`, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    showToast("Сохранено", "success");
+  } catch (e) {
+    showToast("Ошибка: " + e.message, "danger");
+  }
+}
+
+async function approveOlymp(id) {
+  try {
+    await fetchJSON(`/api/olympiads/${id}`, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({reviewed: true}),
+    });
+    showToast("✅ Подтверждено", "success");
+    loadOlympReview();
+  } catch (e) {
+    showToast("Ошибка: " + e.message, "danger");
+  }
+}
+
+async function unapproveOlymp(id) {
+  try {
+    await fetchJSON(`/api/olympiads/${id}`, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({reviewed: false}),
+    });
+    showToast("↩ Возвращено на проверку", "info");
+    loadOlympReview();
+  } catch (e) {
+    showToast("Ошибка: " + e.message, "danger");
+  }
+}
+
+async function deleteOlymp(id) {
+  if (!confirm("Удалить эту запись?")) return;
+  try {
+    await fetchJSON(`/api/olympiads/${id}`, {method: "DELETE"});
+    showToast("🗑 Удалено", "info");
+    loadOlympReview();
+  } catch (e) {
+    showToast("Ошибка: " + e.message, "danger");
+  }
+}
+
+// Загрузить при открытии секции
+// (добавь в showSection: if (name === "olymp-review") loadOlympReview();)
+</script>
+
 </body>
 </html>
