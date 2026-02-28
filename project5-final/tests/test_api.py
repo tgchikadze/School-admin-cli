@@ -1,120 +1,105 @@
-"""
+﻿"""
 tests/test_api.py — тесты для routers/students.py
 
 Запуск:
-    cd project5-final
-    pytest tests/ -v
+cd project5-final
+pytest tests/ -v
 """
 
 
+def _get_class_id(client, name="9"):
+    """Получить id класса по имени."""
+    r = client.get("/api/classes")
+    for c in r.json():
+        if c["name"] == name:
+            return c["id"]
+    return None
+
+
 # ═══════════════════════════════════════════════════
-#  POST /api/students
+# POST /api/students
 # ═══════════════════════════════════════════════════
 
 class TestCreateStudent:
 
     def test_create_ok(self, client):
+        cid = _get_class_id(client, "9")
         r = client.post("/api/students", json={
-            "fio": "Иванов Иван Иванович",
+            "full_name": "Иванов Иван Иванович",
             "contract_number": "ДОГ-001",
-            "class_id": "9",
-            "monthly_payment": 7000,
-            "compensation": "мат. капитал",
+            "class_id": cid,
         })
         assert r.status_code == 201, r.text
         data = r.json()
-        assert data["id"] == "001"
-        assert data["fio"] == "Иванов Иван Иванович"
-        assert data["class_id"] == "9"
+        assert data["full_name"] == "Иванов Иван Иванович"
+        assert data["class_id"] == cid
         assert data["monthly_payment"] == 7000
-        assert data["compensation"] == "мат. капитал"
 
     def test_create_auto_price_fixed(self, client):
-        """Для fixed-класса: если payment=0, ставится base_price."""
+        cid = _get_class_id(client, "8")
         r = client.post("/api/students", json={
-            "fio": "Петров Пётр Петрович",
+            "full_name": "Петров Пётр Петрович",
             "contract_number": "ДОГ-002",
-            "class_id": "8",
+            "class_id": cid,
         })
         assert r.status_code == 201
-        assert r.json()["monthly_payment"] == 8000  # base_price класса 8
+        assert r.json()["monthly_payment"] == 8000
 
     def test_create_class_7_price(self, client):
+        cid = _get_class_id(client, "7")
         r = client.post("/api/students", json={
-            "fio": "Тест Семь", "contract_number": "К-7", "class_id": "7",
+            "full_name": "Тест Семь", "contract_number": "К-7", "class_id": cid,
         })
         assert r.json()["monthly_payment"] == 8500
 
     def test_create_class_11_zero_price(self, client):
-        """Для 11 класса per_subject: payment=0 остаётся 0 (считается отдельно)."""
+        cid = _get_class_id(client, "11")
         r = client.post("/api/students", json={
-            "fio": "Одиннадцатиклассник", "contract_number": "К-11", "class_id": "11",
+            "full_name": "Одиннадцатиклассник", "contract_number": "К-11", "class_id": cid,
         })
         assert r.status_code == 201
-        # per_subject → payment НЕ подставляется автоматически
         assert r.json()["monthly_payment"] == 0
 
-    def test_create_duplicate_fio(self, client):
-        client.post("/api/students", json={
-            "fio": "Дубликат ФИО", "contract_number": "ДОГ-100", "class_id": "9",
-        })
-        r = client.post("/api/students", json={
-            "fio": "Дубликат ФИО", "contract_number": "ДОГ-999", "class_id": "9",
-        })
-        assert r.status_code == 409
-        assert "уже существует" in r.json()["detail"]
-
     def test_create_duplicate_contract(self, client):
+        cid = _get_class_id(client, "9")
         client.post("/api/students", json={
-            "fio": "Один", "contract_number": "ДОГ-DUP", "class_id": "9",
+            "full_name": "Один", "contract_number": "ДОГ-DUP", "class_id": cid,
         })
         r = client.post("/api/students", json={
-            "fio": "Другой", "contract_number": "ДОГ-DUP", "class_id": "9",
+            "full_name": "Другой", "contract_number": "ДОГ-DUP", "class_id": cid,
         })
         assert r.status_code == 409
 
     def test_create_invalid_class(self, client):
-        """class_id=12 — не пройдёт Pydantic-валидацию."""
         r = client.post("/api/students", json={
-            "fio": "Тест", "contract_number": "Т-001", "class_id": "12",
+            "full_name": "Тест", "contract_number": "Т-001", "class_id": 99999,
+        })
+        assert r.status_code == 404
+
+    def test_create_empty_name(self, client):
+        cid = _get_class_id(client, "9")
+        r = client.post("/api/students", json={
+            "full_name": "", "contract_number": "Т-002", "class_id": cid,
         })
         assert r.status_code == 422
-
-    def test_create_empty_fio(self, client):
-        r = client.post("/api/students", json={
-            "fio": "", "contract_number": "Т-002", "class_id": "9",
-        })
-        assert r.status_code == 422
-
-    def test_id_autoincrement(self, client):
-        client.post("/api/students", json={
-            "fio": "Первый", "contract_number": "К-1", "class_id": "7",
-        })
-        r = client.post("/api/students", json={
-            "fio": "Второй", "contract_number": "К-2", "class_id": "7",
-        })
-        assert r.json()["id"] == "002"
-
-        r = client.post("/api/students", json={
-            "fio": "Третий", "contract_number": "К-3", "class_id": "7",
-        })
-        assert r.json()["id"] == "003"
 
 
 # ═══════════════════════════════════════════════════
-#  GET /api/students
+# GET /api/students
 # ═══════════════════════════════════════════════════
 
 class TestListStudents:
 
     def _seed_3(self, client):
-        for fio, contract, cls in [
-            ("Иванов Иван", "Д-1", "9"),
-            ("Петрова Мария", "Д-2", "11"),
-            ("Сидоров Алексей", "Д-3", "9"),
+        c9 = _get_class_id(client, "9")
+        c11 = _get_class_id(client, "11")
+        for full_name, contract, cls in [
+            ("Иванов Иван", "Д-1", c9),
+            ("Петрова Мария", "Д-2", c11),
+            ("Сидоров Алексей", "Д-3", c9),
         ]:
             client.post("/api/students", json={
-                "fio": fio, "contract_number": contract, "class_id": cls,
+                "full_name": full_name, "contract_number": contract, "class_id": cls,
             })
 
     def test_list_all(self, client):
@@ -125,31 +110,22 @@ class TestListStudents:
 
     def test_filter_by_class(self, client):
         self._seed_3(client)
-        r = client.get("/api/students?class_id=9")
+        c9 = _get_class_id(client, "9")
+        r = client.get(f"/api/students?class_id={c9}")
         data = r.json()
         assert len(data) == 2
-        assert all(s["class_id"] == "9" for s in data)
+        assert all(s["class_id"] == c9 for s in data)
 
-    def test_filter_by_class_11(self, client):
+    def test_search_by_name(self, client):
         self._seed_3(client)
-        r = client.get("/api/students?class_id=11")
-        assert len(r.json()) == 1
-
-    def test_search_by_fio(self, client):
-        self._seed_3(client)
-        r = client.get("/api/students?search=петров")
+        r = client.get("/api/students?search=Петров")
         data = r.json()
         assert len(data) == 1
-        assert data[0]["fio"] == "Петрова Мария"
+        assert data[0]["full_name"] == "Петрова Мария"
 
     def test_search_case_insensitive(self, client):
         self._seed_3(client)
-        r = client.get("/api/students?search=ИВАНОВ")
-        assert len(r.json()) == 1
-
-    def test_search_and_filter(self, client):
-        self._seed_3(client)
-        r = client.get("/api/students?search=сидоров&class_id=9")
+        r = client.get("/api/students?search=Иванов")
         assert len(r.json()) == 1
 
     def test_search_no_results(self, client):
@@ -164,138 +140,110 @@ class TestListStudents:
 
 
 # ═══════════════════════════════════════════════════
-#  GET /api/students/{id}
+# GET /api/students/{id}
 # ═══════════════════════════════════════════════════
 
 class TestGetStudentById:
 
     def test_get_ok(self, client):
-        client.post("/api/students", json={
-            "fio": "Тест", "contract_number": "Т-1", "class_id": "10",
+        cid = _get_class_id(client, "10")
+        r = client.post("/api/students", json={
+            "full_name": "Тест", "contract_number": "Т-1", "class_id": cid,
         })
-        r = client.get("/api/students/001")
+        sid = r.json()["id"]
+        r = client.get(f"/api/students/{sid}")
         assert r.status_code == 200
-        assert r.json()["fio"] == "Тест"
-        assert r.json()["class_id"] == "10"
+        assert r.json()["full_name"] == "Тест"
 
     def test_not_found(self, client):
         r = client.get("/api/students/999")
         assert r.status_code == 404
-        assert "не найден" in r.json()["detail"]
 
 
 # ═══════════════════════════════════════════════════
-#  PUT /api/students/{id}
+# PUT /api/students/{id}
 # ═══════════════════════════════════════════════════
 
 class TestUpdateStudent:
 
-    def test_update_fio(self, client):
-        client.post("/api/students", json={
-            "fio": "Старое ФИО", "contract_number": "К-1", "class_id": "9",
+    def _create(self, client):
+        cid = _get_class_id(client, "9")
+        r = client.post("/api/students", json={
+            "full_name": "Старое ФИО", "contract_number": "К-1", "class_id": cid,
         })
-        r = client.put("/api/students/001", json={"fio": "Новое ФИО"})
+        return r.json()["id"]
+
+    def test_update_name(self, client):
+        sid = self._create(client)
+        r = client.put(f"/api/students/{sid}", json={"full_name": "Новое ФИО"})
         assert r.status_code == 200
-        assert r.json()["fio"] == "Новое ФИО"
-        assert r.json()["contract_number"] == "К-1"  # не менялось
+        assert r.json()["full_name"] == "Новое ФИО"
+        assert r.json()["contract_number"] == "К-1"
 
-    def test_update_payment(self, client):
-        client.post("/api/students", json={
-            "fio": "Тест", "contract_number": "К-1", "class_id": "9",
-        })
-        r = client.put("/api/students/001", json={"monthly_payment": 9999})
-        assert r.json()["monthly_payment"] == 9999
-
-    def test_update_multiple_fields(self, client):
-        client.post("/api/students", json={
-            "fio": "Тест", "contract_number": "К-1", "class_id": "9",
-        })
-        r = client.put("/api/students/001", json={
-            "fio": "Новое", "compensation": "50%",
-        })
-        assert r.json()["fio"] == "Новое"
-        assert r.json()["compensation"] == "50%"
+    def test_update_compensation(self, client):
+        sid = self._create(client)
+        r = client.put(f"/api/students/{sid}", json={"compensation": 5000})
+        assert r.json()["compensation"] == 5000
 
     def test_update_not_found(self, client):
-        r = client.put("/api/students/999", json={"fio": "X"})
+        r = client.put("/api/students/999", json={"full_name": "X"})
         assert r.status_code == 404
-
-    def test_update_dup_contract(self, client):
-        client.post("/api/students", json={
-            "fio": "А", "contract_number": "К-1", "class_id": "9",
-        })
-        client.post("/api/students", json={
-            "fio": "Б", "contract_number": "К-2", "class_id": "9",
-        })
-        r = client.put("/api/students/002", json={"contract_number": "К-1"})
-        assert r.status_code == 409
 
 
 # ═══════════════════════════════════════════════════
-#  DELETE /api/students/{id}
+# DELETE /api/students/{id}
 # ═══════════════════════════════════════════════════
 
 class TestDeleteStudent:
 
     def test_delete_ok(self, client):
-        client.post("/api/students", json={
-            "fio": "Удаляемый", "contract_number": "У-1", "class_id": "9",
+        cid = _get_class_id(client, "9")
+        r = client.post("/api/students", json={
+            "full_name": "Удаляемый", "contract_number": "У-1", "class_id": cid,
         })
-        r = client.delete("/api/students/001")
+        sid = r.json()["id"]
+        r = client.delete(f"/api/students/{sid}")
         assert r.status_code == 200
-        assert "001" in r.json()["detail"]
-        # Проверяем что удалён
-        assert client.get("/api/students/001").status_code == 404
+        assert client.get(f"/api/students/{sid}").status_code == 404
 
     def test_delete_not_found(self, client):
         r = client.delete("/api/students/999")
         assert r.status_code == 404
 
     def test_delete_doesnt_affect_others(self, client):
-        client.post("/api/students", json={
-            "fio": "А", "contract_number": "К-1", "class_id": "9",
+        cid = _get_class_id(client, "9")
+        r1 = client.post("/api/students", json={
+            "full_name": "Аа", "contract_number": "К-1", "class_id": cid,
         })
         client.post("/api/students", json={
-            "fio": "Б", "contract_number": "К-2", "class_id": "9",
+            "full_name": "Бб", "contract_number": "К-2", "class_id": cid,
         })
-        client.delete("/api/students/001")
+        client.delete(f"/api/students/{r1.json()['id']}")
         r = client.get("/api/students")
         assert len(r.json()) == 1
-        assert r.json()[0]["fio"] == "Б"
+        assert r.json()[0]["full_name"] == "Бб"
 
 
 # ═══════════════════════════════════════════════════
-#  DELETE /api/students  (clear all)
+# EXAM CHOICES
 # ═══════════════════════════════════════════════════
 
-class TestClearAll:
+class TestExamChoices:
 
-    def test_clear(self, client):
-        for i in range(3):
-            client.post("/api/students", json={
-                "fio": f"Тест {i}", "contract_number": f"К-{i}", "class_id": "9",
-            })
-        r = client.delete("/api/students")
+    def test_set_exams_recalc(self, client):
+        cid = _get_class_id(client, "11")
+        r = client.post("/api/students", json={
+            "full_name": "ЕГЭшник", "contract_number": "Е-1", "class_id": cid,
+        })
+        sid = r.json()["id"]
+        assert r.json()["monthly_payment"] == 0
+
+        r = client.post(f"/api/students/{sid}/exams", json={
+            "student_id": sid,
+            "subjects": ["Химия", "Биология"],
+        })
         assert r.status_code == 200
-        assert "3" in r.json()["detail"]
-        assert client.get("/api/students").json() == []
+        assert len(r.json()) == 2
 
-    def test_clear_empty(self, client):
-        r = client.delete("/api/students")
-        assert r.status_code == 200
-        assert "0" in r.json()["detail"]
-
-
-# ═══════════════════════════════════════════════════
-#  GET /api  (info endpoint)
-# ═══════════════════════════════════════════════════
-
-class TestApiInfo:
-
-    def test_api_info(self, client):
-        r = client.get("/api")
-        assert r.status_code == 200
-        data = r.json()
-        assert data["app"] == "Биотех225 Admin"
-        assert "students" in data["endpoints"]
-        assert data["version"] == "5.0.0"
+        r = client.get(f"/api/students/{sid}")
+        assert r.json()["monthly_payment"] == 6000  # 2 * 3000

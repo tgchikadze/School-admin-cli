@@ -4,27 +4,40 @@ import os
 import json
 import csv
 import re
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
 from .models import Base, SchoolClass
 
 BASEDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATADIR = os.path.join(BASEDIR, "data")
 os.makedirs(DATADIR, exist_ok=True)
 
-DATABASE_URL = f"sqlite:///{os.path.join(DATADIR, 'school.db')}"
+# ── При тестировании используем in-memory SQLite с единым соединением ──
+if os.environ.get("TESTING"):
+    DATABASE_URL = "sqlite://"
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False,
+    )
+else:
+    DATABASE_URL = f"sqlite:///{os.path.join(DATADIR, 'school.db')}"
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        echo=False,
+    )
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False}, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def seed_classes(db: Session):
     """Если таблица school_classes пуста — заполняет из data/classes.json."""
     if db.query(SchoolClass).count() > 0:
-
-        return  # уже есть данные
-    print(f"[seed] BASEDIR={BASEDIR}  DATADIR={DATADIR}")  # ← добавь эту строку
-    # Ищем classes.json в нескольких местах
+        return
+    print(f"[seed] BASEDIR={BASEDIR} DATADIR={DATADIR}")
     candidates = [
         os.path.join(DATADIR, "classes.json"),
         os.path.join(BASEDIR, "classes.json"),
@@ -79,27 +92,10 @@ def drop_db():
     Base.metadata.drop_all(bind=engine)
 
 
-# ─── Добавить в конец database.py (перед drop_db) ───────────
-
-
-# ═══════════════════════════════════════════════════════════════
-# ЗАМЕНИ функцию import_partners_json() в database.py ЦЕЛИКОМ:
-# ═══════════════════════════════════════════════════════════════
-
 def import_partners_json(db: Session | None = None) -> dict:
     """
     Импортирует данные из data/partners.json в таблицы
     universities, programs, olympiads.
-
-    Формат JSON (из P3 scraper):
-    {
-      "spbau": {
-        "programs": [{"university_name": "АУ РАН", "city": "...", "program_name": "...", ...}],
-        "olympiad_benefits": [{"olympiad_name": "...", ...}]
-      },
-      "itmo": { ... },
-      ...
-    }
     """
     from .models import University, Program, Olympiad
 
@@ -118,7 +114,6 @@ def import_partners_json(db: Session | None = None) -> dict:
     try:
         stats = {"universities": 0, "programs": 0, "olympiads": 0}
 
-        # Формат: {uni_key: {"programs": [...], "olympiad_benefits": [...]}}
         for uni_key, uni_data in data.items():
             if not isinstance(uni_data, dict):
                 continue
@@ -126,7 +121,6 @@ def import_partners_json(db: Session | None = None) -> dict:
             programs_list = uni_data.get("programs", [])
             olympiads_list = uni_data.get("olympiad_benefits", uni_data.get("olympiads", []))
 
-            # Определяем название вуза из первой программы или олимпиады
             uni_name = None
             uni_city = "Санкт-Петербург"
 
@@ -146,9 +140,8 @@ def import_partners_json(db: Session | None = None) -> dict:
                         break
 
             if not uni_name:
-                uni_name = uni_key  # fallback — используем ключ
+                uni_name = uni_key
 
-            # Создаём/находим вуз
             uni = db.query(University).filter(University.name == uni_name).first()
             if not uni:
                 uni = University(name=uni_name, city=uni_city)
@@ -156,11 +149,10 @@ def import_partners_json(db: Session | None = None) -> dict:
                 db.flush()
                 stats["universities"] += 1
 
-            # Импорт программ
             for p in programs_list:
                 prog_name = (p.get("program_name") or "").strip()
                 if not prog_name:
-                    continue  # пропускаем пустые
+                    continue
 
                 prog = Program(
                     university_id=uni.id,
@@ -175,7 +167,6 @@ def import_partners_json(db: Session | None = None) -> dict:
                 db.add(prog)
                 stats["programs"] += 1
 
-            # Импорт олимпиад
             for o in olympiads_list:
                 oly_name = (o.get("olympiad_name") or o.get("name") or "").strip()
                 if not oly_name:
@@ -204,39 +195,30 @@ def import_partners_json(db: Session | None = None) -> dict:
         if close_after:
             db.close()
 
+
 def _normalize_name(s: str) -> str:
-    """
-    Приводит строку к каноническому виду для сравнения:
-    lowercase, убираем лишние пробелы, «ё»→«е», убираем кавычки и точки.
-    """
     if not s:
         return ""
     s = s.strip().lower()
     s = s.replace("ё", "е")
-    s = re.sub(r"[«»\"'\.]+", "", s)
+    s = re.sub(r'[«»"\'\.]+', "", s)
     s = re.sub(r"\s+", " ", s)
     return s
 
+
 def _find_university(db, uni_key: str, uni_name: str):
-    """
-    Ищет вуз в БД по точному имени → по нормализованному имени → по uni_key.
-    Возвращает University или None.
-    """
     from .models import University
 
-    # 1) Точное совпадение по name
     uni = db.query(University).filter(University.name == uni_name).first()
     if uni:
         return uni
 
-    # 2) Нормализованное сравнение по всем вузам в БД
     norm_target = _normalize_name(uni_name)
     if norm_target:
         for u in db.query(University).all():
             if _normalize_name(u.name) == norm_target:
                 return u
 
-    # 3) Поиск по подстроке uni_key в name (напр. "ИТМО" содержит "итмо")
     norm_key = _normalize_name(uni_key)
     if norm_key:
         for u in db.query(University).all():
@@ -245,12 +227,9 @@ def _find_university(db, uni_key: str, uni_name: str):
 
     return None
 
+
 def _olympiad_signature(uni_id: int, name: str, subject: str,
                         benefit_type: str, program_name: str) -> str:
-    """
-    Уникальная сигнатура олимпиадной записи для проверки дубликатов.
-    Одна и та же олимпиада + предмет + тип льготы + программа = дубль.
-    """
     parts = [
         str(uni_id),
         _normalize_name(name),
@@ -260,16 +239,10 @@ def _olympiad_signature(uni_id: int, name: str, subject: str,
     ]
     return "|".join(parts)
 
+
 def import_olympiads_csv(db: Session | None = None) -> dict:
     """
     Черновой импорт олимпиад из data/olympiads_raw.csv.
-
-    - Нормализует названия для предотвращения дубликатов
-    - Маппит university_id из CSV → University в БД
-    - Создаёт Olympiad(reviewed=False)
-    - Идемпотентен: повторный вызов НЕ создаёт дубли
-
-    Возвращает: {created, skipped_noname, skipped_nouni, skipped_dup, total}
     """
     from .models import University, Olympiad
 
@@ -283,7 +256,6 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
         close_after = True
 
     try:
-        # Собираем существующие сигнатуры из БД
         existing_sigs = set()
         for o in db.query(Olympiad).all():
             sig = _olympiad_signature(
@@ -291,7 +263,7 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
                 o.olympiad_name or "",
                 o.subject or "",
                 o.benefit_type or "",
-                ""  # program_name нет в модели — пока без неё
+                ""
             )
             existing_sigs.add(sig)
 
@@ -309,13 +281,11 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
             for row in reader:
                 stats["total"] += 1
 
-                # --- Фильтр: пустое имя олимпиады ---
                 raw_name = (row.get("olympiad_name") or "").strip()
                 if not raw_name or raw_name.lower() == "nan":
                     stats["skipped_noname"] += 1
                     continue
 
-                # --- Маппинг вуза ---
                 uni_key = (row.get("university_id") or "").strip()
                 uni_name_csv = (row.get("university_name") or "").strip()
                 if uni_name_csv.lower() == "nan":
@@ -324,7 +294,6 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
                 uni = _find_university(db, uni_key, uni_name_csv)
 
                 if not uni:
-                    # Создаём новый вуз с пометкой
                     display_name = uni_name_csv or uni_key
                     city = (row.get("city") or "").strip()
                     city = {"spb": "Санкт-Петербург", "msk": "Москва"}.get(
@@ -333,10 +302,9 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
 
                     uni = University(name=display_name, city=city)
                     db.add(uni)
-                    db.flush()  # получаем uni.id
+                    db.flush()
                     stats["new_universities"] += 1
 
-                # --- Нормализация полей ---
                 subject = (row.get("subject") or "").strip()
                 if subject.lower() == "nan":
                     subject = ""
@@ -344,7 +312,6 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
                 benefit_type = (row.get("benefit_type") or "").strip()
                 if benefit_type.lower() == "nan":
                     benefit_type = ""
-                # Нормализуем разделитель: "БВИ;100 баллов" → "БВИ; 100 баллов"
                 benefit_type = "; ".join(
                     s.strip() for s in benefit_type.replace(";", ";").split(";")
                     if s.strip() and s.strip().lower() != "nan"
@@ -356,7 +323,6 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
                 benefit_detail = (row.get("benefit_detail") or "").strip()
                 if benefit_detail.lower() == "nan":
                     benefit_detail = ""
-                # Обрезаем мусорные длинные тексты (HTML-дампы)
                 if len(benefit_detail) > 500:
                     benefit_detail = benefit_detail[:500] + "…"
 
@@ -372,7 +338,6 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
                 if program_name.lower() == "nan":
                     program_name = ""
 
-                # --- Дедупликация ---
                 sig = _olympiad_signature(
                     uni.id, raw_name, subject, benefit_type, ""
                 )
@@ -381,7 +346,6 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
                     continue
                 existing_sigs.add(sig)
 
-                # --- Формируем benefit_detail из notes + detail ---
                 combined_detail = ""
                 if notes:
                     combined_detail = notes
@@ -390,7 +354,6 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
                         combined_detail += " | "
                     combined_detail += benefit_detail
 
-                # --- Создаём запись ---
                 o = Olympiad(
                     university_id=uni.id,
                     olympiad_name=raw_name,
@@ -414,8 +377,8 @@ def import_olympiads_csv(db: Session | None = None) -> dict:
         if close_after:
             db.close()
 
+
 def _safe_int(val) -> int | None:
-    """Безопасное преобразование в int (пустые строки → None)."""
     if val is None or val == "":
         return None
     try:
@@ -425,7 +388,6 @@ def _safe_int(val) -> int | None:
 
 
 def _safe_float(val) -> float | None:
-    """Безопасное преобразование в float (пустые строки → None)."""
     if val is None or val == "":
         return None
     try:
